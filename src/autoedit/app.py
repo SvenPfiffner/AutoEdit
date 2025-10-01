@@ -8,7 +8,11 @@ modification.
 
 from __future__ import annotations
 
+
+from textwrap import shorten
 from typing import List, Optional
+from typing import Any, Dict, List, Optional
+
 
 import streamlit as st
 from time import perf_counter
@@ -32,9 +36,9 @@ def run() -> None:
     layout.apply_global_styles()
     layout.render_header()
     with st.container():
-        user_prompt, uploaded_image = layout.render_input_panel()
+        user_prompt, uploaded_image, generation_options = layout.render_input_panel()
         if layout.user_requested_processing():
-            processed_result = _process_image(user_prompt, uploaded_image)
+            processed_result = _process_image(user_prompt, uploaded_image, generation_options)
             if processed_result:
                 history: List[ProcessResult] = (
                     st.session_state.get("edit_history", [])[1:]
@@ -47,7 +51,11 @@ def run() -> None:
 
 
 
-def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[ProcessResult]:
+def _process_image(
+    prompt: str,
+    image_data: Optional[bytes],
+    options: Optional[Dict[str, Any]],
+) -> Optional[ProcessResult]:
     """Execute the staged editing workflow and manage UI side effects.
 
     Parameters
@@ -56,6 +64,8 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
         The textual instructions provided by the user.
     image_data:
         Raw byte representation of the user supplied image.
+    options:
+        Structured generation preferences collected from the form.
     """
 
     if not image_data:
@@ -71,12 +81,78 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
     progress_placeholder = st.empty()
     current_step = {"index": 0}
 
+    option_summary_parts = []
+    if options:
+        if options.get("aspect_ratio"):
+            option_summary_parts.append(f"Aspect: {options['aspect_ratio']}")
+        styles = options.get("style_mood") or []
+        if styles:
+            option_summary_parts.append("Style: " + ", ".join(styles))
+        quality_flags = [
+            label.replace("_", " ").title()
+            for label, enabled in (options.get("quality") or {}).items()
+            if enabled
+        ]
+        if quality_flags:
+            option_summary_parts.append("Quality: " + ", ".join(quality_flags))
+    summary_text = (
+        " · ".join(option_summary_parts + ["Initializing editing workflow..."])
+        if option_summary_parts
+        else "Initializing editing workflow..."
+    )
+
     layout.render_workflow_progress(
         placeholder=progress_placeholder,
         steps=steps,
         statuses=statuses,
-        detail_text="Initializing editing workflow...",
+
+        detail_text="Preparing the workflow. We'll begin in a moment.",
     )
+
+    active_messages = [
+        "Generating a caption for the upload.",
+        "Drafting the edit instructions.",
+        "Applying visual refinements.",
+    ]
+    complete_messages = [
+        "Caption captured. Next up: plan the edits.",
+        "Edit plan ready. Applying the changes now.",
+        "Preview refreshed with the requested look.",
+    ]
+
+    def summarize_detail(step_index: int, status: str, fallback: str) -> str:
+        total_steps = len(steps)
+        safe_index = max(0, min(step_index, total_steps - 1))
+        step_name = steps[safe_index] if steps else "Step"
+        prefix = f"Step {safe_index + 1} of {total_steps}: " if total_steps else ""
+        trimmed_fallback = shorten(fallback, width=120, placeholder="…") if fallback else ""
+
+        if status == "active":
+            message = (
+                active_messages[safe_index]
+                if safe_index < len(active_messages)
+                else f"{step_name} in progress."
+            )
+            return prefix + message
+
+        if status == "complete":
+            message = (
+                complete_messages[safe_index]
+                if safe_index < len(complete_messages)
+                else f"{step_name} complete."
+            )
+            return prefix + message
+
+        if status == "error":
+            return prefix + "We hit a snag. Please review this step."
+
+        if status == "pending":
+            return prefix + "Waiting to start."
+
+        if trimmed_fallback:
+            return prefix + trimmed_fallback
+
+        return prefix + "Working on the next step."
 
     def update_progress(step_index: int, status: str, message: str) -> None:
         current_step["index"] = step_index
@@ -96,7 +172,7 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
             placeholder=progress_placeholder,
             steps=steps,
             statuses=statuses,
-            detail_text=message,
+            detail_text=summarize_detail(step_index, status, message),
         )
 
     processor = ImageProcessor()
@@ -107,10 +183,15 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
             prompt=prompt,
             image_bytes=image_data,
             progress_callback=update_progress,
+            options=options or {},
         )
         result.duration_seconds = perf_counter() - start_time
     except Exception as exc:  # pragma: no cover - defensive UX handling
-        update_progress(current_step['index'], "error", "Processing failed. Please try again.")
+        update_progress(
+            current_step["index"],
+            "error",
+            "Processing failed. Please try again.",
+        )
         st.error(f"Something went wrong while editing the image: {exc}")
         return None
 
@@ -127,7 +208,7 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
         placeholder=progress_placeholder,
         steps=steps,
         statuses=["complete"] * len(steps),
-        detail_text="Workflow complete.",
+        detail_text="Workflow complete. Review the refreshed image.",
     )
 
     return result
