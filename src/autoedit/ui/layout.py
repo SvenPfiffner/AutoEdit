@@ -23,6 +23,68 @@ from autoedit.services.image_processor import ProcessResult, WorkflowStepResult
 
 _PROCESS_BUTTON_KEY = "process_image_button"
 _PROCESS_BUTTON_STATE_KEY = "process_image_requested"
+_HISTORY_SELECTION_WIDGET_KEY = "autoedit_history_selection"
+_SELECTED_HISTORY_STATE_KEY = "selected_history_index"
+_HISTORY_LAST_ACTIVATED_KEY = "history_last_hydrated"
+_FAVORITE_STATE_KEY = "favorite_history_entries"
+_COMPARISON_STATE_KEY = "comparison_view_state"
+_ADVANCED_OPTIONS_STATE_KEY = "advanced_options_state"
+_DUPLICATE_SOURCE_STATE_KEY = "duplicate_history_source"
+
+
+def _history_entry_identifier(entry: ProcessResult, index: int) -> str:
+    """Create a stable identifier for history-driven interactions."""
+
+    return f"{entry.created_at.isoformat()}-{index:02d}"
+
+
+def _get_favorites_state() -> set[str]:
+    """Return the mutable container tracking favorited results."""
+
+    favorites = st.session_state.get(_FAVORITE_STATE_KEY)
+    if isinstance(favorites, set):
+        return favorites
+    if favorites is None:
+        favorites = set()
+    else:
+        favorites = set(favorites)
+    st.session_state[_FAVORITE_STATE_KEY] = favorites
+    return favorites
+
+
+def _hydrate_history_snapshot(snapshot: ProcessResult) -> None:
+    """Populate key UI inputs based on a selected history snapshot."""
+
+    st.session_state["autoedit_creative_brief"] = snapshot.user_prompt or ""
+    advanced_state = dict(st.session_state.get(_ADVANCED_OPTIONS_STATE_KEY, {}))
+    advanced_state.update(
+        {
+            "refined_prompt": snapshot.refined_prompt or "",
+            "caption": snapshot.caption or "",
+        }
+    )
+    st.session_state[_ADVANCED_OPTIONS_STATE_KEY] = advanced_state
+    st.session_state[_COMPARISON_STATE_KEY] = {
+        "prompt": snapshot.refined_prompt or snapshot.user_prompt or "",
+        "caption": snapshot.caption or "",
+        "image": snapshot.final_image,
+        "created_at": snapshot.created_at.isoformat(),
+    }
+
+
+def _toggle_favorite(entry_id: str, snapshot: ProcessResult) -> bool:
+    """Flip the favorite state for a history entry and persist the choice."""
+
+    favorites = _get_favorites_state()
+    if entry_id in favorites:
+        favorites.remove(entry_id)
+        snapshot.is_favorited = False
+        return False
+
+    favorites.add(entry_id)
+    snapshot.is_favorited = True
+    return True
+
 
 
 def apply_global_styles() -> None:
@@ -251,19 +313,29 @@ def apply_global_styles() -> None:
                 margin-top: 1.75rem;
                 background: var(--autoedit-card);
                 border-radius: 22px;
-                padding: 1.25rem 1.35rem;
+                padding: 1.5rem;
                 box-shadow: 0 18px 40px rgba(12, 26, 42, 0.1);
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
                 max-height: 520px;
                 overflow-y: auto;
             }
 
-            .history-panel__title {
+            .history-panel--empty {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .history-panel__header {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
+                gap: 0.75rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .history-panel__header h2 {
+                margin: 0;
+                font-size: 1.05rem;
                 font-weight: 600;
                 color: var(--autoedit-secondary);
             }
@@ -286,22 +358,61 @@ def apply_global_styles() -> None:
                 font-size: 0.85rem;
                 color: rgba(12, 26, 42, 0.55);
                 line-height: 1.5;
+                margin: 0;
+            }
+
+            .history-panel .stRadio > div[role="radiogroup"] {
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+                margin-bottom: 1rem;
+            }
+
+            .history-panel .stRadio label {
+                font-size: 0.85rem;
+                color: rgba(12, 26, 42, 0.65);
+            }
+
+            .history-panel .stRadio [role="radio"] {
+                padding: 0.35rem 0.5rem;
+                border-radius: 12px;
+                border: 1px solid transparent;
+            }
+
+            .history-panel .stRadio [aria-checked="true"] {
+                background: rgba(11, 132, 243, 0.08);
+                border-color: rgba(11, 132, 243, 0.25);
+                color: var(--autoedit-secondary);
             }
 
             .history-entry {
                 display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                border-radius: 18px;
+                border: 1px solid rgba(11, 132, 243, 0.12);
+                padding: 1rem;
+                background: rgba(11, 132, 243, 0.05);
+                transition: box-shadow 0.2s ease, border-color 0.2s ease;
+                margin-bottom: 1rem;
+            }
+
+            .history-entry[data-selected="true"] {
+                border-color: rgba(11, 132, 243, 0.6);
+                box-shadow: 0 16px 32px rgba(11, 132, 243, 0.18);
+                background: rgba(11, 132, 243, 0.12);
+            }
+
+            .history-entry__body {
+                display: flex;
                 gap: 0.85rem;
                 align-items: flex-start;
-                background: rgba(11, 132, 243, 0.06);
-                border: 1px solid rgba(11, 132, 243, 0.08);
-                border-radius: 16px;
-                padding: 0.75rem;
             }
 
             .history-entry__thumb {
                 width: 72px;
                 height: 72px;
-                border-radius: 14px;
+                border-radius: 16px;
                 overflow: hidden;
                 flex-shrink: 0;
                 background: rgba(12, 26, 42, 0.08);
@@ -318,20 +429,98 @@ def apply_global_styles() -> None:
                 flex: 1;
                 display: flex;
                 flex-direction: column;
-                gap: 0.35rem;
+                gap: 0.5rem;
             }
 
-            .history-entry__meta {
+            .history-entry__badges {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 0.4rem;
+            }
+
+            .history-entry__badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
                 font-size: 0.75rem;
+                font-weight: 600;
                 letter-spacing: 0.05em;
                 text-transform: uppercase;
-                color: rgba(12, 26, 42, 0.45);
+                border-radius: 999px;
+                padding: 0.15rem 0.65rem;
+            }
+
+            .history-entry__badge--id {
+                background: rgba(11, 132, 243, 0.16);
+                color: var(--autoedit-primary);
+            }
+
+            .history-entry__badge--duration {
+                background: rgba(12, 26, 42, 0.08);
+                color: rgba(12, 26, 42, 0.7);
+            }
+
+            .history-entry__badge--favorite {
+                background: #fce8b2;
+                color: #8a5a00;
             }
 
             .history-entry__prompt {
-                font-size: 0.85rem;
+                font-size: 0.88rem;
                 line-height: 1.5;
-                color: rgba(12, 26, 42, 0.78);
+                color: rgba(12, 26, 42, 0.82);
+                margin: 0;
+            }
+
+            .history-entry__timestamp {
+                font-size: 0.75rem;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: rgba(12, 26, 42, 0.48);
+            }
+
+            .history-entry__actions {
+                display: block;
+            }
+
+            .history-entry__actions .stColumn {
+                padding: 0 !important;
+            }
+
+            .history-entry__actions .stButton > button,
+            .history-entry__actions .stDownloadButton > button {
+                width: 100%;
+                border-radius: 12px;
+                font-size: 0.85rem;
+                padding: 0.55rem 0.75rem;
+                background: #ffffff;
+                border: 1px solid rgba(11, 132, 243, 0.18);
+                color: var(--autoedit-secondary);
+                transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            }
+
+            .history-entry__actions .stColumn:first-child .stButton > button {
+                background: rgba(11, 132, 243, 0.08);
+            }
+
+            .history-entry__actions .stButton > button:hover,
+            .history-entry__actions .stDownloadButton > button:hover {
+                border-color: rgba(11, 132, 243, 0.4);
+                box-shadow: 0 8px 18px rgba(11, 132, 243, 0.15);
+            }
+
+            .stButton > button:focus-visible,
+            .stDownloadButton > button:focus-visible,
+            .history-panel .stRadio [role="radio"]:focus-visible {
+                outline: 3px solid var(--autoedit-primary);
+                outline-offset: 3px;
+                box-shadow: 0 0 0 4px rgba(11, 132, 243, 0.25);
+            }
+
+            a:focus-visible {
+                outline: 3px solid var(--autoedit-primary);
+                outline-offset: 3px;
             }
 
             .footer {
@@ -586,12 +775,68 @@ def render_past_edits(
     """Display a panel of previous image edits if available."""
 
     target = container or st
-    visible_history = list(history[:8])
+    visible_history = [entry for entry in history[:8] if entry.final_image]
 
-    entries: List[str] = []
-    for idx, previous in enumerate(visible_history, start=1):
-        if not previous.final_image:
-            continue
+    if not visible_history:
+        target.markdown(
+            """
+            <section class="history-panel history-panel--empty" id="history-panel" aria-label="Past Generations">
+                <header class="history-panel__header">
+                    <h2>Past Generations</h2>
+                    <span class="history-panel__count">0</span>
+                </header>
+                <p class="history-panel__empty">Past edits will appear here once available.</p>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.session_state.pop(_HISTORY_SELECTION_WIDGET_KEY, None)
+        st.session_state.pop(_SELECTED_HISTORY_STATE_KEY, None)
+        st.session_state.pop(_HISTORY_LAST_ACTIVATED_KEY, None)
+        return
+
+    favorites = _get_favorites_state()
+
+    default_index = st.session_state.get(_HISTORY_SELECTION_WIDGET_KEY, 0)
+    if default_index >= len(visible_history):
+        default_index = 0
+    if _HISTORY_SELECTION_WIDGET_KEY not in st.session_state:
+        st.session_state[_HISTORY_SELECTION_WIDGET_KEY] = default_index
+
+    panel = target.container()
+    panel.markdown(
+        """
+        <section class="history-panel" id="history-panel" aria-label="Past Generations">
+            <header class="history-panel__header">
+                <h2>Past Generations</h2>
+                <span class="history-panel__count">{count}</span>
+            </header>
+        """.format(count=len(visible_history)),
+        unsafe_allow_html=True,
+    )
+
+    selection = panel.radio(
+        "Select a past edit",
+        options=list(range(len(visible_history))),
+        index=default_index,
+        format_func=lambda idx: f"Revision {idx + 1:02d}",
+        key=_HISTORY_SELECTION_WIDGET_KEY,
+        label_visibility="collapsed",
+    )
+
+    st.session_state[_SELECTED_HISTORY_STATE_KEY] = selection
+
+    if st.session_state.get(_HISTORY_LAST_ACTIVATED_KEY) != selection:
+        st.session_state[_HISTORY_LAST_ACTIVATED_KEY] = selection
+        _hydrate_history_snapshot(visible_history[selection])
+
+    for idx, previous in enumerate(visible_history):
+        entry_id = _history_entry_identifier(previous, idx)
+        is_selected = idx == selection
+        if previous.is_favorited:
+            favorites.add(entry_id)
+        is_favorited = entry_id in favorites
+        previous.is_favorited = is_favorited
 
         timestamp_text = previous.created_at.strftime("%b %d, %Y · %H:%M")
         prompt_source = (
@@ -611,48 +856,80 @@ def render_past_edits(
         encoded_image = base64.b64encode(previous.final_image).decode("utf-8")
         safe_prompt = html.escape(prompt_summary)
         safe_timestamp = html.escape(timestamp_text)
+        favorite_badge = (
+            "<span class=\"history-entry__badge history-entry__badge--favorite\">Favorite</span>"
+            if is_favorited
+            else ""
+        )
 
-        entries.append(
+        duration_label = (
+            f"{previous.duration_seconds:.1f}s"
+            if previous.duration_seconds is not None
+            else "—"
+        )
+
+        entry_container = panel.container()
+        entry_container.markdown(
             """
-            <article class="history-entry">
-                <div class="history-entry__thumb">
-                    <img src="data:{mime};base64,{image}" alt="Past generation {index}" loading="lazy" />
+            <article class="history-entry" data-selected="{selected}" aria-label="Revision {index:02d}">
+                <div class="history-entry__body">
+                    <div class="history-entry__thumb">
+                        <img src="data:{mime};base64,{image}" alt="Past generation {index}" loading="lazy" />
+                    </div>
+                    <div class="history-entry__content">
+                        <div class="history-entry__badges">
+                            <span class="history-entry__badge history-entry__badge--id">Revision {index:02d}</span>
+                            <span class="history-entry__badge history-entry__badge--duration">Duration {duration}</span>
+                            {favorite_badge}
+                        </div>
+                        <p class="history-entry__prompt">{prompt}</p>
+                        <time class="history-entry__timestamp">{timestamp}</time>
+                    </div>
                 </div>
-                <div class="history-entry__content">
-                    <div class="history-entry__meta">Revision {index:02d} · {timestamp}</div>
-                    <div class="history-entry__prompt">{prompt}</div>
-                </div>
-            </article>
+                <div class="history-entry__actions">
             """.format(
                 image=encoded_image,
                 prompt=safe_prompt,
                 mime=mime_type,
                 timestamp=safe_timestamp,
-                index=idx,
-            )
-        )
-
-    if not entries:
-        target.markdown(
-            """
-            <div class="history-panel">
-                <div class="history-panel__title">Past Generations<span class="history-panel__count">0</span></div>
-                <div class="history-panel__empty">Past edits will appear here once available.</div>
-            </div>
-            """,
+                index=idx + 1,
+                duration=html.escape(duration_label),
+                favorite_badge=favorite_badge,
+                selected=str(is_selected).lower(),
+            ),
             unsafe_allow_html=True,
         )
-        return
 
-    target.markdown(
-        """
-        <div class="history-panel">
-            <div class="history-panel__title">Past Generations<span class="history-panel__count">{count}</span></div>
-            {entries}
-        </div>
-        """.format(count=len(entries), entries="".join(entries)),
-        unsafe_allow_html=True,
-    )
+        action_cols = entry_container.columns((1, 1, 1))
+        with action_cols[0]:
+            favorite_label = "★ Favorited" if is_favorited else "☆ Favorite"
+            if st.button(favorite_label, key=f"{entry_id}-favorite"):
+                is_favorited = _toggle_favorite(entry_id, previous)
+                if is_favorited:
+                    favorites.add(entry_id)
+                else:
+                    favorites.discard(entry_id)
+
+        with action_cols[1]:
+            if st.button("Duplicate", key=f"{entry_id}-duplicate"):
+                st.session_state[_HISTORY_SELECTION_WIDGET_KEY] = idx
+                st.session_state[_SELECTED_HISTORY_STATE_KEY] = idx
+                st.session_state[_HISTORY_LAST_ACTIVATED_KEY] = idx
+                st.session_state[_DUPLICATE_SOURCE_STATE_KEY] = entry_id
+                _hydrate_history_snapshot(previous)
+
+        with action_cols[2]:
+            entry_container.download_button(
+                "Download",
+                data=previous.final_image,
+                file_name=f"autoedit-revision-{idx + 1:02d}.{image_format}",
+                mime=mime_type,
+                key=f"{entry_id}-download",
+            )
+
+        entry_container.markdown("</div></article>", unsafe_allow_html=True)
+
+    panel.markdown("</section>", unsafe_allow_html=True)
 
 
 def render_footer() -> None:

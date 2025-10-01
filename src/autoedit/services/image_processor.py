@@ -9,7 +9,7 @@ Streamlit UI can already orchestrate a realistic multi-step pipeline.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
@@ -37,6 +37,8 @@ class ProcessResult:
     final_image: Optional[bytes]
     steps: List[WorkflowStepResult]
     created_at: datetime
+    duration_seconds: Optional[float] = None
+    is_favorited: bool = field(default=False)
 
 
 class JoyCaptionModel:

@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 import streamlit as st
+from time import perf_counter
 
 from autoedit.services.image_processor import ImageProcessor, ProcessResult
 from autoedit.ui import layout
@@ -101,11 +102,13 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
     processor = ImageProcessor()
 
     try:
+        start_time = perf_counter()
         result = processor.process(
             prompt=prompt,
             image_bytes=image_data,
             progress_callback=update_progress,
         )
+        result.duration_seconds = perf_counter() - start_time
     except Exception as exc:  # pragma: no cover - defensive UX handling
         update_progress(current_step['index'], "error", "Processing failed. Please try again.")
         st.error(f"Something went wrong while editing the image: {exc}")
