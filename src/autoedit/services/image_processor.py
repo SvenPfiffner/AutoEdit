@@ -13,9 +13,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
-from caption_service import generate_caption
-from llm_service import craft_edit_prompt
-from edit_service import edit_image
+from services.caption_service import generate_caption
+from services.llm_service import craft_edit_prompt
+from services.edit_service import edit_image
 
 
 @dataclass

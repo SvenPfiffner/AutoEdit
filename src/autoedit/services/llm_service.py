@@ -1,4 +1,4 @@
-def craft_edit_prompt(self, user_prompt: str, caption: str) -> str:
+def craft_edit_prompt(user_prompt: str, caption: str) -> str:
     base_instruction = (
             "You are QWEN-Image-Edit. Preserve key elements from the source "
             "image while applying the requested adjustments."
