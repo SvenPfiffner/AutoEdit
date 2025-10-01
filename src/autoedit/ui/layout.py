@@ -7,7 +7,7 @@ readable and allows for individual sections to evolve independently.
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import base64
 import html
@@ -21,7 +21,6 @@ from streamlit.delta_generator import DeltaGenerator
 from autoedit.services.image_processor import ProcessResult, WorkflowStepResult
 
 
-_PROCESS_BUTTON_KEY = "process_image_button"
 _PROCESS_BUTTON_STATE_KEY = "process_image_requested"
 
 
@@ -421,48 +420,167 @@ def render_header() -> None:
     )
 
 
-def render_input_panel() -> Tuple[str, Optional[bytes]]:
-    """Display the prompt input and image upload widgets."""
-    cols = st.columns((3, 2), gap="large")
+def render_input_panel() -> Tuple[str, Optional[bytes], Dict[str, Any]]:
+    """Display the prompt form, helpers, and advanced configuration."""
 
-    with cols[0]:
-        prompt = st.text_area(
-            "Creative Brief",
-            placeholder="Describe the aesthetic, tone, or changes you'd like to explore...",
-            help="Be as descriptive as you like—mention mood, color palettes, or artistic influences.",
-            max_chars=800,
-            key="autoedit_creative_brief",
-        )
+    prompt_chips = [
+        {
+            "label": "Editorial portrait",
+            "prompt": "Capture a moody editorial portrait with dramatic lighting and soft shadows.",
+        },
+        {
+            "label": "Product hero",
+            "prompt": "Design a clean product hero shot on a gradient backdrop with subtle reflections.",
+        },
+        {
+            "label": "Concept art",
+            "prompt": "Imagine a vibrant sci-fi cityscape at dusk with neon signage and dynamic lighting.",
+        },
+        {
+            "label": "Social campaign",
+            "prompt": "Create a playful social campaign visual with bold typography and energetic color blocking.",
+        },
+    ]
 
-    image_bytes: Optional[bytes] = None
-    with cols[1]:
-        uploaded_file = st.file_uploader(
-            "Reference Visual",
-            type=["png", "jpg", "jpeg", "webp"],
-            help="High-quality PNG or JPEG works best. We'll handle the rest.",
-            key="autoedit_reference_visual",
-        )
+    sample_references = [
+        {
+            "name": "Neon streets",
+            "url": "https://images.unsplash.com/photo-1508057198894-247b23fe5ade",
+            "description": "Moody night photography ideal for cyberpunk moods.",
+        },
+        {
+            "name": "Minimal studio",
+            "url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518",
+            "description": "Neutral lighting setup for clean product iterations.",
+        },
+        {
+            "name": "Organic textures",
+            "url": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee",
+            "description": "Natural materials inspiration with tactile finishes.",
+        },
+    ]
 
-        if uploaded_file is not None:
-            image_bytes = uploaded_file.getvalue()
-            st.image(image_bytes, caption="Uploaded reference", use_column_width=True)
+    advanced_defaults = {
+        "aspect_ratio": "Square (1:1)",
+        "style_mood": [],
+        "quality": {
+            "high_fidelity": True,
+            "preserve_details": True,
+            "enhance_depth": False,
+        },
+    }
 
-    action_cols = st.columns((3, 2), gap="large")
-    with action_cols[0]:
-        submit_pressed = st.button(
-            "Render Concept",
-            use_container_width=True,
-            type="primary",
-            help="Generate a refined visual concept using your prompt and reference.",
-            key=_PROCESS_BUTTON_KEY,
-        )
+    with st.form(key="autoedit_input_form"):
+        cols = st.columns((3, 2), gap="large")
 
-    with action_cols[1]:
-        st.caption("Processing may take a moment as the workflow runs each stage.")
+        with cols[0]:
+            st.markdown("### Creative Direction")
+            prompt = st.text_area(
+                "Creative Brief",
+                placeholder="Describe the aesthetic, tone, or changes you'd like to explore...",
+                help="Be as descriptive as you like—mention mood, color palettes, or artistic influences.",
+                max_chars=800,
+                key="autoedit_creative_brief",
+            )
+
+            st.markdown("#### Quick start prompts")
+            chip_columns = st.columns(len(prompt_chips))
+            for column, chip in zip(chip_columns, prompt_chips):
+                if column.form_submit_button(chip["label"], type="secondary"):
+                    st.session_state["autoedit_creative_brief"] = chip["prompt"]
+                    st.session_state[_PROCESS_BUTTON_STATE_KEY] = False
+
+            st.markdown("#### Sample reference library")
+            for reference in sample_references:
+                st.markdown(
+                    f"- [{reference['name']}]({reference['url']}) · {reference['description']}"
+                )
+
+        image_bytes: Optional[bytes] = None
+        with cols[1]:
+            st.markdown("### Reference & Output")
+            uploaded_file = st.file_uploader(
+                "Reference Visual",
+                type=["png", "jpg", "jpeg", "webp"],
+                help="High-quality PNG or JPEG works best. We'll handle the rest.",
+                key="autoedit_reference_visual",
+            )
+
+            if uploaded_file is not None:
+                image_bytes = uploaded_file.getvalue()
+                st.image(image_bytes, caption="Uploaded reference", use_column_width=True)
+
+            with st.expander("Advanced output", expanded=False):
+                aspect_ratio = st.selectbox(
+                    "Aspect ratio",
+                    (
+                        "Square (1:1)",
+                        "Portrait (3:4)",
+                        "Portrait (9:16)",
+                        "Landscape (16:9)",
+                        "Ultrawide (21:9)",
+                    ),
+                    index=0,
+                    key="autoedit_aspect_ratio",
+                    help="Choose how the final frame should be composed.",
+                )
+
+                style_mood = st.multiselect(
+                    "Style or mood cues",
+                    options=[
+                        "Cinematic",
+                        "Documentary",
+                        "Playful",
+                        "Conceptual",
+                        "Editorial",
+                        "Surreal",
+                    ],
+                    default=advanced_defaults["style_mood"],
+                    key="autoedit_style_mood",
+                    help="Select descriptors to influence the overall treatment.",
+                )
+
+                high_fidelity = st.checkbox(
+                    "High fidelity rendering",
+                    value=advanced_defaults["quality"]["high_fidelity"],
+                    key="autoedit_high_fidelity",
+                )
+                preserve_details = st.checkbox(
+                    "Preserve intricate details",
+                    value=advanced_defaults["quality"]["preserve_details"],
+                    key="autoedit_preserve_details",
+                )
+                enhance_depth = st.checkbox(
+                    "Enhance depth and contrast",
+                    value=advanced_defaults["quality"]["enhance_depth"],
+                    key="autoedit_enhance_depth",
+                )
+
+        action_cols = st.columns((3, 2), gap="large")
+        with action_cols[0]:
+            submit_pressed = st.form_submit_button(
+                "Render Concept",
+                use_container_width=True,
+                type="primary",
+                help="Generate a refined visual concept using your prompt and reference.",
+            )
+
+        with action_cols[1]:
+            st.caption("Processing may take a moment as the workflow runs each stage.")
 
     st.session_state[_PROCESS_BUTTON_STATE_KEY] = submit_pressed
 
-    return prompt, image_bytes
+    options: Dict[str, Any] = {
+        "aspect_ratio": aspect_ratio,
+        "style_mood": style_mood,
+        "quality": {
+            "high_fidelity": high_fidelity,
+            "preserve_details": preserve_details,
+            "enhance_depth": enhance_depth,
+        },
+    }
+
+    return prompt, image_bytes, options
 
 
 def user_requested_processing() -> bool:
@@ -532,6 +650,16 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
     caption_text = html.escape(result.caption or "No caption generated.")
     refined_prompt = html.escape(result.refined_prompt or "No refined prompt available.")
 
+    aspect_ratio = html.escape(result.options.get("aspect_ratio", "Not specified"))
+    style_mood = ", ".join(result.options.get("style_mood", [])) or "Default mood"
+    style_mood = html.escape(style_mood)
+    quality_flags = [
+        label.replace("_", " ").title()
+        for label, enabled in (result.options.get("quality") or {}).items()
+        if enabled
+    ]
+    quality_text = html.escape(", ".join(quality_flags) if quality_flags else "Standard output")
+
     metadata_html = f"""
         <div class="result-card result-card--metadata">
             <h3>Workflow Summary</h3>
@@ -546,6 +674,18 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
             <div class="result-card__item">
                 <span class="result-card__label">Refined edit prompt</span>
                 <p>{refined_prompt}</p>
+            </div>
+            <div class="result-card__item">
+                <span class="result-card__label">Aspect ratio</span>
+                <p>{aspect_ratio}</p>
+            </div>
+            <div class="result-card__item">
+                <span class="result-card__label">Style direction</span>
+                <p>{style_mood}</p>
+            </div>
+            <div class="result-card__item">
+                <span class="result-card__label">Quality emphasis</span>
+                <p>{quality_text}</p>
             </div>
         </div>
     """
