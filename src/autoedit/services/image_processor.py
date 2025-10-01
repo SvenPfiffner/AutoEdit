@@ -13,6 +13,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
+from caption_service import generate_caption
+from llm_service import craft_edit_prompt
+from edit_service import edit_image
+
 
 @dataclass
 class WorkflowStepResult:
@@ -39,40 +43,22 @@ class JoyCaptionModel:
     """Placeholder for the JoyCaption vision-language model."""
 
     def generate_caption(self, image_bytes: bytes) -> str:
-        if not image_bytes:
-            return ""
-        # The real model would infer a rich caption. We emulate that here.
-        return (
-            "A high-resolution photograph with balanced lighting, captured in a "
-            "modern editorial style."
-        )
+        return generate_caption(image_bytes)
 
 
 class PromptOrchestrator:
     """Simulates the lightweight LLM responsible for planning edits."""
 
     def craft_edit_prompt(self, user_prompt: str, caption: str) -> str:
-        base_instruction = (
-            "You are QWEN-Image-Edit. Preserve key elements from the source "
-            "image while applying the requested adjustments."
-        )
-        contextual_caption = f"Context: {caption}" if caption else "Context: Unavailable."
-        user_direction = (
-            f"User brief: {user_prompt.strip()}" if user_prompt.strip() else "User brief: No additional guidance provided."
-        )
-        return " \n".join((base_instruction, contextual_caption, user_direction))
+        return craft_edit_prompt(user_prompt, caption)
+        
 
 
 class QwenImageEditor:
     """Stands in for the QWEN-Image-Edit model."""
 
     def apply_edit(self, image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
-        if not image_bytes:
-            return None
-        # Real implementation would return the edited image. For now we simply
-        # echo the input bytes so that the UI can render the uploaded image.
-        _ = refined_prompt  # The prompt is unused in the placeholder.
-        return image_bytes
+        return edit_image(image_bytes, refined_prompt)
 
 
 ProgressCallback = Callable[[int, str, str], None]
