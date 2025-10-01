@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from typing import List, Optional, Sequence, Tuple
 
+import base64
 import html
+import imghdr
+from textwrap import shorten
 
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
@@ -19,6 +22,7 @@ from autoedit.services.image_processor import ProcessResult, WorkflowStepResult
 
 
 _PROCESS_BUTTON_KEY = "process_image_button"
+_PROCESS_BUTTON_STATE_KEY = "process_image_requested"
 
 
 def apply_global_styles() -> None:
@@ -33,18 +37,22 @@ def apply_global_styles() -> None:
                 --autoedit-card: #FFFFFF;
             }
 
+            body {
+                background: var(--autoedit-background);
+            }
+
             .block-container {
-                padding-top: 3rem;
-                padding-bottom: 5rem;
-                max-width: 1080px;
+                padding-top: 2.5rem;
+                padding-bottom: 3.5rem;
+                max-width: 1180px;
             }
 
             .hero {
                 background: linear-gradient(135deg, rgba(11, 132, 243, 0.12), rgba(11, 132, 243, 0.02));
                 border-radius: 24px;
-                padding: 3.5rem;
-                box-shadow: 0 24px 60px rgba(12, 26, 42, 0.1);
-                margin-bottom: 3rem;
+                padding: 2.75rem 3rem;
+                box-shadow: 0 24px 60px rgba(12, 26, 42, 0.08);
+                margin-bottom: 2.5rem;
             }
 
             .hero__badge {
@@ -100,6 +108,10 @@ def apply_global_styles() -> None:
                 gap: 1.25rem;
             }
 
+            .result-card--pipeline {
+                margin-top: 1.5rem;
+            }
+
             .result-card__item {
                 display: flex;
                 flex-direction: column;
@@ -115,42 +127,60 @@ def apply_global_styles() -> None:
             }
 
             .workflow-progress {
-                margin: 2rem 0 3rem;
+                margin: 1.5rem 0 2.5rem;
                 background: var(--autoedit-card);
                 border-radius: 24px;
-                padding: 1.75rem 2rem;
+                padding: 1.5rem 2rem;
                 box-shadow: 0 24px 54px rgba(12, 26, 42, 0.12);
             }
 
             .workflow-progress__detail {
                 font-weight: 600;
                 color: var(--autoedit-secondary);
-                margin-bottom: 1.25rem;
+                margin-bottom: 1rem;
             }
 
             .workflow-progress__steps {
                 display: flex;
-                align-items: center;
-                gap: 1.5rem;
+                align-items: stretch;
+                gap: 1.25rem;
             }
 
             .workflow-progress__step {
                 flex: 1;
                 text-align: center;
                 position: relative;
-                padding: 0 0.5rem;
+                padding: 0 0.5rem 0.5rem;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 0.75rem;
+                min-height: 130px;
             }
 
+            .workflow-progress__step::before,
             .workflow-progress__step::after {
                 content: "";
                 position: absolute;
-                top: 1.45rem;
-                right: -0.75rem;
-                width: calc(100% - 1.5rem);
+                top: 1.1rem;
+                width: 50%;
                 height: 3px;
                 background: rgba(12, 26, 42, 0.12);
+                z-index: 0;
             }
 
+            .workflow-progress__step::before {
+                left: 0;
+                transform: translateX(-50%);
+            }
+
+            .workflow-progress__step::after {
+                right: 0;
+                transform: translateX(50%);
+            }
+
+            .workflow-progress__step:first-child::before,
             .workflow-progress__step:last-child::after {
                 display: none;
             }
@@ -159,13 +189,15 @@ def apply_global_styles() -> None:
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                width: 2.2rem;
-                height: 2.2rem;
+                width: 2.4rem;
+                height: 2.4rem;
                 border-radius: 999px;
                 font-weight: 700;
-                margin: 0 auto 0.75rem;
+                margin: 0;
                 background: rgba(11, 132, 243, 0.12);
                 color: var(--autoedit-primary);
+                position: relative;
+                z-index: 1;
             }
 
             .workflow-progress__label {
@@ -184,6 +216,10 @@ def apply_global_styles() -> None:
                 background: rgba(11, 132, 243, 0.45);
             }
 
+            .workflow-progress__step--complete + .workflow-progress__step::before {
+                background: rgba(11, 132, 243, 0.45);
+            }
+
             .workflow-progress__step--active .workflow-progress__index {
                 background: rgba(11, 132, 243, 0.2);
                 color: var(--autoedit-primary);
@@ -191,7 +227,11 @@ def apply_global_styles() -> None:
             }
 
             .workflow-progress__step--active::after {
-                background: rgba(11, 132, 243, 0.3);
+                background: rgba(11, 132, 243, 0.35);
+            }
+
+            .workflow-progress__step--active + .workflow-progress__step::before {
+                background: rgba(11, 132, 243, 0.35);
             }
 
             .workflow-progress__step--error .workflow-progress__index {
@@ -203,42 +243,95 @@ def apply_global_styles() -> None:
                 background: rgba(209, 67, 67, 0.4);
             }
 
-            .history-gallery {
-                margin-top: 2.5rem;
+            .workflow-progress__step--error + .workflow-progress__step::before {
+                background: rgba(209, 67, 67, 0.4);
             }
 
-            .history-gallery__grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-                gap: 1.5rem;
-            }
-
-            .history-card {
+            .history-panel {
+                margin-top: 1.75rem;
                 background: var(--autoedit-card);
-                border-radius: 18px;
-                padding: 1rem;
-                box-shadow: 0 12px 30px rgba(12, 26, 42, 0.08);
+                border-radius: 22px;
+                padding: 1.25rem 1.35rem;
+                box-shadow: 0 18px 40px rgba(12, 26, 42, 0.1);
                 display: flex;
                 flex-direction: column;
-                gap: 0.75rem;
+                gap: 1rem;
+                max-height: 520px;
+                overflow-y: auto;
             }
 
-            .history-card__image {
-                border-radius: 12px;
-                overflow: hidden;
+            .history-panel__title {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-weight: 600;
+                color: var(--autoedit-secondary);
             }
 
-            .history-card__meta {
+            .history-panel__count {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.75rem;
+                font-weight: 600;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                background: rgba(11, 132, 243, 0.12);
+                color: var(--autoedit-primary);
+                border-radius: 999px;
+                padding: 0.1rem 0.65rem;
+            }
+
+            .history-panel__empty {
                 font-size: 0.85rem;
-                color: rgba(12, 26, 42, 0.7);
+                color: rgba(12, 26, 42, 0.55);
                 line-height: 1.5;
             }
 
-            .history-card__timestamp {
+            .history-entry {
+                display: flex;
+                gap: 0.85rem;
+                align-items: flex-start;
+                background: rgba(11, 132, 243, 0.06);
+                border: 1px solid rgba(11, 132, 243, 0.08);
+                border-radius: 16px;
+                padding: 0.75rem;
+            }
+
+            .history-entry__thumb {
+                width: 72px;
+                height: 72px;
+                border-radius: 14px;
+                overflow: hidden;
+                flex-shrink: 0;
+                background: rgba(12, 26, 42, 0.08);
+            }
+
+            .history-entry__thumb img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+
+            .history-entry__content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+
+            .history-entry__meta {
                 font-size: 0.75rem;
                 letter-spacing: 0.05em;
                 text-transform: uppercase;
                 color: rgba(12, 26, 42, 0.45);
+            }
+
+            .history-entry__prompt {
+                font-size: 0.85rem;
+                line-height: 1.5;
+                color: rgba(12, 26, 42, 0.78);
             }
 
             .footer {
@@ -274,6 +367,35 @@ def apply_global_styles() -> None:
             .stFileUploader > div > div {
                 border-radius: 20px;
             }
+
+            @media (max-width: 1024px) {
+                .workflow-progress {
+                    padding: 1.35rem 1.25rem;
+                }
+
+                .workflow-progress__steps {
+                    flex-direction: column;
+                }
+
+                .workflow-progress__step {
+                    width: 100%;
+                    min-height: auto;
+                    align-items: flex-start;
+                }
+
+                .workflow-progress__step::before,
+                .workflow-progress__step::after {
+                    display: none;
+                }
+
+                .workflow-progress__index {
+                    margin-bottom: 0.35rem;
+                }
+
+                .history-panel {
+                    max-height: none;
+                }
+            }
         </style>
         """,
         unsafe_allow_html=True,
@@ -301,43 +423,51 @@ def render_header() -> None:
 
 def render_input_panel() -> Tuple[str, Optional[bytes]]:
     """Display the prompt input and image upload widgets."""
-    with st.form(key="autoedit-input-form", clear_on_submit=False):
-        cols = st.columns((3, 2), gap="large")
-        with cols[0]:
-            prompt = st.text_area(
-                "Creative Brief",
-                placeholder="Describe the aesthetic, tone, or changes you'd like to explore...",
-                help="Be as descriptive as you like—mention mood, color palettes, or artistic influences.",
-                max_chars=800,
-            )
-        with cols[1]:
-            uploaded_file = st.file_uploader(
-                "Reference Visual",
-                type=["png", "jpg", "jpeg", "webp"],
-                help="High-quality PNG or JPEG works best. We'll handle the rest.",
-            )
+    cols = st.columns((3, 2), gap="large")
 
-            if uploaded_file is not None:
-                st.image(uploaded_file, caption="Uploaded reference", use_column_width=True)
-                image_bytes = uploaded_file.getvalue()
-            else:
-                image_bytes = None
+    with cols[0]:
+        prompt = st.text_area(
+            "Creative Brief",
+            placeholder="Describe the aesthetic, tone, or changes you'd like to explore...",
+            help="Be as descriptive as you like—mention mood, color palettes, or artistic influences.",
+            max_chars=800,
+            key="autoedit_creative_brief",
+        )
 
-        submit_pressed = st.form_submit_button(
+    image_bytes: Optional[bytes] = None
+    with cols[1]:
+        uploaded_file = st.file_uploader(
+            "Reference Visual",
+            type=["png", "jpg", "jpeg", "webp"],
+            help="High-quality PNG or JPEG works best. We'll handle the rest.",
+            key="autoedit_reference_visual",
+        )
+
+        if uploaded_file is not None:
+            image_bytes = uploaded_file.getvalue()
+            st.image(image_bytes, caption="Uploaded reference", use_column_width=True)
+
+    action_cols = st.columns((3, 2), gap="large")
+    with action_cols[0]:
+        submit_pressed = st.button(
             "Render Concept",
             use_container_width=True,
             type="primary",
-            on_click=lambda: None,
             help="Generate a refined visual concept using your prompt and reference.",
+            key=_PROCESS_BUTTON_KEY,
         )
-        st.session_state[_PROCESS_BUTTON_KEY] = submit_pressed
+
+    with action_cols[1]:
+        st.caption("Processing may take a moment as the workflow runs each stage.")
+
+    st.session_state[_PROCESS_BUTTON_STATE_KEY] = submit_pressed
 
     return prompt, image_bytes
 
 
 def user_requested_processing() -> bool:
     """Check whether the user triggered the processing flow in the last submit."""
-    return st.session_state.get(_PROCESS_BUTTON_KEY, False)
+    return st.session_state.get(_PROCESS_BUTTON_STATE_KEY, False)
 
 
 
@@ -394,8 +524,8 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
         st.info("Upload an image and craft a prompt to see your results here.")
         return
 
-    cols = st.columns((3, 2), gap="large")
-    with cols[0]:
+    main_col, side_col = st.columns((7, 5), gap="large")
+    with main_col:
         st.image(result.final_image, caption="Edited visual", use_column_width=True)
 
     user_brief = html.escape(result.user_prompt or "No brief provided.")
@@ -420,8 +550,8 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
         </div>
     """
 
-    with cols[1]:
-        st.markdown(metadata_html, unsafe_allow_html=True)
+    with side_col:
+        side_col.markdown(metadata_html, unsafe_allow_html=True)
 
     step_items: List[str] = []
     for step in result.steps:
@@ -433,9 +563,9 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
         )
 
     if step_items:
-        st.markdown(
+        main_col.markdown(
             """
-            <div class="result-card">
+            <div class="result-card result-card--pipeline">
                 <h3>Pipeline Details</h3>
                 <ul>{items}</ul>
             </div>
@@ -443,52 +573,86 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
             unsafe_allow_html=True,
         )
 
-    render_past_edits(history)
+    with side_col:
+        render_past_edits(history, container=side_col)
 
 
 
-def render_past_edits(history: Sequence[ProcessResult]) -> None:
+def render_past_edits(
+    history: Sequence[ProcessResult],
+    *,
+    container: Optional[DeltaGenerator] = None,
+) -> None:
     """Display a panel of previous image edits if available."""
 
-    if not history:
-        return
+    target = container or st
+    visible_history = list(history[:8])
 
-    entries = []
-    for previous in history[:6]:
+    entries: List[str] = []
+    for idx, previous in enumerate(visible_history, start=1):
         if not previous.final_image:
             continue
-        timestamp = previous.created_at.strftime("%b %d, %Y %H:%M")
-        prompt_summary = (previous.refined_prompt or "").strip() or "No refined prompt provided."
+
+        timestamp_text = previous.created_at.strftime("%b %d, %Y · %H:%M")
+        prompt_source = (
+            previous.refined_prompt
+            or previous.caption
+            or previous.user_prompt
+            or "No refined prompt provided."
+        )
+        normalized_prompt = " ".join(prompt_source.split()) or "No refined prompt provided."
+        prompt_summary = shorten(normalized_prompt, width=140, placeholder="…")
+
+        image_format = imghdr.what(None, h=previous.final_image) or "png"
+        if image_format == "jpg":
+            image_format = "jpeg"
+        mime_type = f"image/{image_format}"
+
+        encoded_image = base64.b64encode(previous.final_image).decode("utf-8")
+        safe_prompt = html.escape(prompt_summary)
+        safe_timestamp = html.escape(timestamp_text)
+
         entries.append(
-            (
-                previous.final_image,
-                html.escape(prompt_summary),
-                html.escape(timestamp),
+            """
+            <article class="history-entry">
+                <div class="history-entry__thumb">
+                    <img src="data:{mime};base64,{image}" alt="Past generation {index}" loading="lazy" />
+                </div>
+                <div class="history-entry__content">
+                    <div class="history-entry__meta">Revision {index:02d} · {timestamp}</div>
+                    <div class="history-entry__prompt">{prompt}</div>
+                </div>
+            </article>
+            """.format(
+                image=encoded_image,
+                prompt=safe_prompt,
+                mime=mime_type,
+                timestamp=safe_timestamp,
+                index=idx,
             )
         )
 
     if not entries:
-        st.info("Past edits will appear here once available.")
+        target.markdown(
+            """
+            <div class="history-panel">
+                <div class="history-panel__title">Past Generations<span class="history-panel__count">0</span></div>
+                <div class="history-panel__empty">Past edits will appear here once available.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         return
 
-    st.markdown("### Past Edits")
-    st.markdown('<div class="history-gallery">', unsafe_allow_html=True)
-    cols = st.columns(min(3, len(entries)))
-
-    for idx, (image, prompt_text, timestamp) in enumerate(entries):
-        column = cols[idx % len(cols)]
-        with column:
-            st.markdown('<div class="history-card">', unsafe_allow_html=True)
-            st.image(image, use_column_width=True)
-            st.markdown(
-                """
-                <div class="history-card__meta">{prompt}</div>
-                <div class="history-card__timestamp">{timestamp}</div>
-                </div>
-                """.format(prompt=prompt_text, timestamp=timestamp),
-                unsafe_allow_html=True,
-            )
-    st.markdown('</div>', unsafe_allow_html=True)
+    target.markdown(
+        """
+        <div class="history-panel">
+            <div class="history-panel__title">Past Generations<span class="history-panel__count">{count}</span></div>
+            {entries}
+        </div>
+        """.format(count=len(entries), entries="".join(entries)),
+        unsafe_allow_html=True,
+    )
 
 
 def render_footer() -> None:
