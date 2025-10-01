@@ -8,7 +8,11 @@ modification.
 
 from __future__ import annotations
 
+
+from textwrap import shorten
+from typing import List, Optional
 from typing import Any, Dict, List, Optional
+
 
 import streamlit as st
 
@@ -100,8 +104,54 @@ def _process_image(
         placeholder=progress_placeholder,
         steps=steps,
         statuses=statuses,
-        detail_text=summary_text,
+
+        detail_text="Preparing the workflow. We'll begin in a moment.",
     )
+
+    active_messages = [
+        "Generating a caption for the upload.",
+        "Drafting the edit instructions.",
+        "Applying visual refinements.",
+    ]
+    complete_messages = [
+        "Caption captured. Next up: plan the edits.",
+        "Edit plan ready. Applying the changes now.",
+        "Preview refreshed with the requested look.",
+    ]
+
+    def summarize_detail(step_index: int, status: str, fallback: str) -> str:
+        total_steps = len(steps)
+        safe_index = max(0, min(step_index, total_steps - 1))
+        step_name = steps[safe_index] if steps else "Step"
+        prefix = f"Step {safe_index + 1} of {total_steps}: " if total_steps else ""
+        trimmed_fallback = shorten(fallback, width=120, placeholder="…") if fallback else ""
+
+        if status == "active":
+            message = (
+                active_messages[safe_index]
+                if safe_index < len(active_messages)
+                else f"{step_name} in progress."
+            )
+            return prefix + message
+
+        if status == "complete":
+            message = (
+                complete_messages[safe_index]
+                if safe_index < len(complete_messages)
+                else f"{step_name} complete."
+            )
+            return prefix + message
+
+        if status == "error":
+            return prefix + "We hit a snag. Please review this step."
+
+        if status == "pending":
+            return prefix + "Waiting to start."
+
+        if trimmed_fallback:
+            return prefix + trimmed_fallback
+
+        return prefix + "Working on the next step."
 
     def update_progress(step_index: int, status: str, message: str) -> None:
         current_step["index"] = step_index
@@ -121,7 +171,7 @@ def _process_image(
             placeholder=progress_placeholder,
             steps=steps,
             statuses=statuses,
-            detail_text=message,
+            detail_text=summarize_detail(step_index, status, message),
         )
 
     processor = ImageProcessor()
@@ -134,7 +184,11 @@ def _process_image(
             options=options or {},
         )
     except Exception as exc:  # pragma: no cover - defensive UX handling
-        update_progress(current_step['index'], "error", "Processing failed. Please try again.")
+        update_progress(
+            current_step["index"],
+            "error",
+            "Processing failed. Please try again.",
+        )
         st.error(f"Something went wrong while editing the image: {exc}")
         return None
 
@@ -151,7 +205,7 @@ def _process_image(
         placeholder=progress_placeholder,
         steps=steps,
         statuses=["complete"] * len(steps),
-        detail_text="Workflow complete.",
+        detail_text="Workflow complete. Review the refreshed image.",
     )
 
     return result
