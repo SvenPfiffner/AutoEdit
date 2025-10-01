@@ -10,7 +10,7 @@ Streamlit UI can already orchestrate a realistic multi-step pipeline.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
 
@@ -119,7 +119,7 @@ class ImageProcessor:
                 refined_prompt="",
                 final_image=None,
                 steps=[],
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
 
         def notify(step_index: int, status: str, message: str) -> None:
@@ -164,7 +164,7 @@ class ImageProcessor:
             refined_prompt=refined_prompt,
             final_image=final_image,
             steps=steps,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
 

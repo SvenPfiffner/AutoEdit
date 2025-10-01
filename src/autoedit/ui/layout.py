@@ -350,11 +350,16 @@ def render_workflow_progress(
 ) -> None:
     """Render a professional looking progress indicator for the workflow."""
 
+    allowed_statuses = {"pending", "active", "complete", "error"}
+
     status_classes: List[str] = []
-    for status in statuses:
-        if status not in {"pending", "active", "complete", "error"}:
+    for status in list(statuses)[: len(steps)]:
+        if status not in allowed_statuses:
             status = "pending"
         status_classes.append(status)
+
+    if len(status_classes) < len(steps):
+        status_classes.extend(["pending"] * (len(steps) - len(status_classes)))
 
     step_markup: List[str] = []
     for index, (label, status) in enumerate(zip(steps, status_classes), start=1):
