@@ -126,6 +126,18 @@ def apply_global_styles() -> None:
                 color: rgba(12, 26, 42, 0.58);
             }
 
+            .visually-hidden {
+                position: absolute !important;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }
+
             .workflow-progress {
                 margin: 1.5rem 0 2.5rem;
                 background: var(--autoedit-card);
@@ -144,19 +156,30 @@ def apply_global_styles() -> None:
                 display: flex;
                 align-items: stretch;
                 gap: 1.25rem;
+                list-style: none;
+                padding: 0;
+                margin: 0;
             }
 
             .workflow-progress__step {
                 flex: 1;
                 text-align: center;
                 position: relative;
-                padding: 0 0.5rem 0.5rem;
+                padding: 0 0.5rem 0.75rem;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: flex-start;
-                gap: 0.75rem;
-                min-height: 130px;
+                gap: 0.7rem;
+                min-height: 140px;
+                border-radius: 18px;
+                cursor: default;
+                transition: box-shadow 0.2s ease;
+            }
+
+            .workflow-progress__step:focus-visible {
+                outline: 3px solid rgba(11, 132, 243, 0.8);
+                outline-offset: 4px;
             }
 
             .workflow-progress__step::before,
@@ -206,10 +229,38 @@ def apply_global_styles() -> None:
                 line-height: 1.4;
             }
 
+            .workflow-progress__status-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                font-size: 0.85rem;
+                color: rgba(12, 26, 42, 0.65);
+                background: rgba(12, 26, 42, 0.05);
+                border-radius: 999px;
+                padding: 0.25rem 0.75rem;
+                position: relative;
+                z-index: 1;
+            }
+
+            .workflow-progress__status-icon {
+                font-size: 0.95rem;
+                line-height: 1;
+            }
+
+            .workflow-progress__status-text {
+                font-weight: 600;
+                letter-spacing: 0.01em;
+            }
+
             .workflow-progress__step--complete .workflow-progress__index {
                 background: var(--autoedit-primary);
                 color: white;
                 box-shadow: 0 12px 20px rgba(11, 132, 243, 0.25);
+            }
+
+            .workflow-progress__step--complete .workflow-progress__status-badge {
+                background: rgba(11, 132, 243, 0.12);
+                color: var(--autoedit-primary);
             }
 
             .workflow-progress__step--complete::after {
@@ -226,6 +277,11 @@ def apply_global_styles() -> None:
                 border: 2px solid rgba(11, 132, 243, 0.65);
             }
 
+            .workflow-progress__step--active .workflow-progress__status-badge {
+                background: rgba(11, 132, 243, 0.16);
+                color: var(--autoedit-primary);
+            }
+
             .workflow-progress__step--active::after {
                 background: rgba(11, 132, 243, 0.35);
             }
@@ -237,6 +293,11 @@ def apply_global_styles() -> None:
             .workflow-progress__step--error .workflow-progress__index {
                 background: rgba(209, 67, 67, 0.18);
                 color: #d14343;
+            }
+
+            .workflow-progress__step--error .workflow-progress__status-badge {
+                background: rgba(209, 67, 67, 0.14);
+                color: #b03838;
             }
 
             .workflow-progress__step--error::after {
@@ -481,6 +542,12 @@ def render_workflow_progress(
     """Render a professional looking progress indicator for the workflow."""
 
     allowed_statuses = {"pending", "active", "complete", "error"}
+    status_metadata = {
+        "pending": {"label": "Not started", "icon": "○"},
+        "active": {"label": "In progress", "icon": "⏳"},
+        "complete": {"label": "Complete", "icon": "✓"},
+        "error": {"label": "Needs attention", "icon": "⚠"},
+    }
 
     status_classes: List[str] = []
     for status in list(statuses)[: len(steps)]:
@@ -492,22 +559,37 @@ def render_workflow_progress(
         status_classes.extend(["pending"] * (len(steps) - len(status_classes)))
 
     step_markup: List[str] = []
+    total_steps = len(steps)
     for index, (label, status) in enumerate(zip(steps, status_classes), start=1):
         safe_label = html.escape(label)
+        status_info = status_metadata.get(status, status_metadata["pending"])
+        safe_status = html.escape(status_info["label"])
+        status_icon = html.escape(status_info["icon"])
+        aria_label = html.escape(
+            f"Step {index} of {total_steps}, {label} ({status_info['label']})"
+        )
+        aria_current_attr = ' aria-current="step"' if status == "active" else ""
         step_markup.append(
             (
-                f'<div class="workflow-progress__step workflow-progress__step--{status}">'
-                f'<div class="workflow-progress__index">{index}</div>'
+                f'<li class="workflow-progress__step workflow-progress__step--{status}"'
+                f' role="listitem" tabindex="0" aria-label="{aria_label}"{aria_current_attr}>'
+                f'<div class="workflow-progress__index" aria-hidden="true">{index}</div>'
                 f'<div class="workflow-progress__label">{safe_label}</div>'
+                '<div class="workflow-progress__status-badge">'
+                f'<span class="workflow-progress__status-icon" aria-hidden="true">{status_icon}</span>'
+                f'<span class="workflow-progress__status-text">{safe_status}</span>'
                 '</div>'
+                '</li>'
             )
         )
 
+    safe_detail = html.escape(detail_text)
     placeholder.markdown(
         (
             "<div class=\"workflow-progress\">"
-            f"<div class=\"workflow-progress__detail\">{html.escape(detail_text)}</div>"
-            f"<div class=\"workflow-progress__steps\">{''.join(step_markup)}</div>"
+            f"<div class=\"workflow-progress__detail\">{safe_detail}</div>"
+            f"<div class=\"workflow-progress__live visually-hidden\" aria-live=\"polite\" aria-atomic=\"true\">{safe_detail}</div>"
+            f"<ol class=\"workflow-progress__steps\" role=\"list\">{''.join(step_markup)}</ol>"
             "</div>"
         ),
         unsafe_allow_html=True,

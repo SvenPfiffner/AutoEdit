@@ -25,8 +25,13 @@ def test_render_workflow_progress_pads_missing_statuses():
     output, flag = placeholder.calls[-1]
     assert flag is True
 
-    for index in range(1, len(steps) + 1):
-        assert f'class="workflow-progress__index">{index}</div>' in output
+    assert '<ol class="workflow-progress__steps" role="list">' in output
+    assert output.count('<li class="workflow-progress__step') == len(steps)
+    assert 'aria-live="polite"' in output
+
+    assert 'aria-label="Step 1 of 3, Caption (Complete)"' in output
+    assert 'aria-label="Step 3 of 3, Edit (Not started)"' in output
+    assert 'tabindex="0"' in output
 
 
 def test_render_workflow_progress_sanitizes_statuses():
@@ -41,3 +46,4 @@ def test_render_workflow_progress_sanitizes_statuses():
 
     output, _ = placeholder.calls[-1]
     assert "workflow-progress__step--pending" in output
+    assert 'aria-label="Step 1 of 1, One (Not started)"' in output
