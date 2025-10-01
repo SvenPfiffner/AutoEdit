@@ -8,8 +8,11 @@ modification.
 
 from __future__ import annotations
 
+
 from textwrap import shorten
 from typing import List, Optional
+from typing import Any, Dict, List, Optional
+
 
 import streamlit as st
 
@@ -32,9 +35,9 @@ def run() -> None:
     layout.apply_global_styles()
     layout.render_header()
     with st.container():
-        user_prompt, uploaded_image = layout.render_input_panel()
+        user_prompt, uploaded_image, generation_options = layout.render_input_panel()
         if layout.user_requested_processing():
-            processed_result = _process_image(user_prompt, uploaded_image)
+            processed_result = _process_image(user_prompt, uploaded_image, generation_options)
             if processed_result:
                 history: List[ProcessResult] = (
                     st.session_state.get("edit_history", [])[1:]
@@ -47,7 +50,11 @@ def run() -> None:
 
 
 
-def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[ProcessResult]:
+def _process_image(
+    prompt: str,
+    image_data: Optional[bytes],
+    options: Optional[Dict[str, Any]],
+) -> Optional[ProcessResult]:
     """Execute the staged editing workflow and manage UI side effects.
 
     Parameters
@@ -56,6 +63,8 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
         The textual instructions provided by the user.
     image_data:
         Raw byte representation of the user supplied image.
+    options:
+        Structured generation preferences collected from the form.
     """
 
     if not image_data:
@@ -71,10 +80,31 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
     progress_placeholder = st.empty()
     current_step = {"index": 0}
 
+    option_summary_parts = []
+    if options:
+        if options.get("aspect_ratio"):
+            option_summary_parts.append(f"Aspect: {options['aspect_ratio']}")
+        styles = options.get("style_mood") or []
+        if styles:
+            option_summary_parts.append("Style: " + ", ".join(styles))
+        quality_flags = [
+            label.replace("_", " ").title()
+            for label, enabled in (options.get("quality") or {}).items()
+            if enabled
+        ]
+        if quality_flags:
+            option_summary_parts.append("Quality: " + ", ".join(quality_flags))
+    summary_text = (
+        " · ".join(option_summary_parts + ["Initializing editing workflow..."])
+        if option_summary_parts
+        else "Initializing editing workflow..."
+    )
+
     layout.render_workflow_progress(
         placeholder=progress_placeholder,
         steps=steps,
         statuses=statuses,
+
         detail_text="Preparing the workflow. We'll begin in a moment.",
     )
 
@@ -151,6 +181,7 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
             prompt=prompt,
             image_bytes=image_data,
             progress_callback=update_progress,
+            options=options or {},
         )
     except Exception as exc:  # pragma: no cover - defensive UX handling
         update_progress(
