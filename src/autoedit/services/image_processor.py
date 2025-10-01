@@ -9,9 +9,9 @@ Streamlit UI can already orchestrate a realistic multi-step pipeline.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, List, Optional
+from typing import Any, Dict, Callable, List, Optional
 
 from autoedit.services.caption_service import generate_caption
 from autoedit.services.llm_service import craft_edit_prompt
@@ -38,6 +38,7 @@ class ProcessResult:
     original_image: Optional[bytes]
     steps: List[WorkflowStepResult]
     created_at: datetime
+    options: Dict[str, Any] = field(default_factory=dict)
 
 
 class JoyCaptionModel:
@@ -78,6 +79,7 @@ class ImageProcessor:
         prompt: str,
         image_bytes: bytes,
         progress_callback: Optional[ProgressCallback] = None,
+        options: Optional[Dict[str, Any]] = None,
     ) -> ProcessResult:
         """Process the provided image according to the multi-step workflow.
 
@@ -91,6 +93,9 @@ class ImageProcessor:
             Optional callable used to report progress updates. The callback
             receives the step index, the new status (``"active"``,
             ``"complete"``, or ``"error"``), and a human-readable message.
+        options:
+            Structured rendering preferences describing things like aspect
+            ratio, style cues, or quality toggles chosen by the user.
 
         Returns
         -------
@@ -98,6 +103,8 @@ class ImageProcessor:
             The structured output of the workflow, including placeholder
             captions and refined prompts.
         """
+
+        safe_options: Dict[str, Any] = dict(options or {})
 
         if not image_bytes:
             return ProcessResult(
@@ -108,6 +115,7 @@ class ImageProcessor:
                 original_image=None,
                 steps=[],
                 created_at=datetime.now(timezone.utc),
+                options=safe_options,
             )
 
         def notify(step_index: int, status: str, message: str) -> None:
@@ -154,6 +162,7 @@ class ImageProcessor:
             original_image=image_bytes,
             steps=steps,
             created_at=datetime.now(timezone.utc),
+            options=safe_options,
         )
 
 
