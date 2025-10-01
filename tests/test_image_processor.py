@@ -27,6 +27,7 @@ def test_image_processor_success_flow():
     )
 
     assert result.final_image == image_bytes
+    assert result.original_image == image_bytes
     assert result.caption
     assert result.refined_prompt
     assert len(result.steps) == 3
@@ -45,5 +46,6 @@ def test_image_processor_handles_missing_image():
     result = processor.process(prompt="test", image_bytes=b"", options={"aspect_ratio": "Square"})
 
     assert result.final_image is None
+    assert result.original_image is None
     assert result.steps == []
     assert result.options["aspect_ratio"] == "Square"

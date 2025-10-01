@@ -13,9 +13,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Callable, List, Optional
 
-from services.caption_service import generate_caption
-from services.llm_service import craft_edit_prompt
-from services.edit_service import edit_image
+from autoedit.services.caption_service import generate_caption
+from autoedit.services.llm_service import craft_edit_prompt
+from autoedit.services.edit_service import edit_image
 
 
 @dataclass
@@ -35,6 +35,7 @@ class ProcessResult:
     caption: str
     refined_prompt: str
     final_image: Optional[bytes]
+    original_image: Optional[bytes]
     steps: List[WorkflowStepResult]
     created_at: datetime
     options: Dict[str, Any] = field(default_factory=dict)
@@ -111,6 +112,7 @@ class ImageProcessor:
                 caption="",
                 refined_prompt="",
                 final_image=None,
+                original_image=None,
                 steps=[],
                 created_at=datetime.now(timezone.utc),
                 options=safe_options,
@@ -157,6 +159,7 @@ class ImageProcessor:
             caption=caption,
             refined_prompt=refined_prompt,
             final_image=final_image,
+            original_image=image_bytes,
             steps=steps,
             created_at=datetime.now(timezone.utc),
             options=safe_options,
