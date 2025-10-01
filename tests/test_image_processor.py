@@ -16,6 +16,7 @@ def test_image_processor_success_flow():
     result = processor.process(prompt=prompt, image_bytes=image_bytes, progress_callback=callback)
 
     assert result.final_image == image_bytes
+    assert result.original_image == image_bytes
     assert result.caption
     assert result.refined_prompt
     assert len(result.steps) == 3
@@ -32,4 +33,5 @@ def test_image_processor_handles_missing_image():
     result = processor.process(prompt="test", image_bytes=b"")
 
     assert result.final_image is None
+    assert result.original_image is None
     assert result.steps == []

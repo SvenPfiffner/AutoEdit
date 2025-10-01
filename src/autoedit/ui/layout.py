@@ -7,22 +7,279 @@ readable and allows for individual sections to evolve independently.
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import base64
 import html
 import imghdr
+import io
+import json
 from textwrap import shorten
 
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
 
-from autoedit.services.image_processor import ProcessResult, WorkflowStepResult
+from autoedit.services.image_processor import ImageProcessor, ProcessResult, WorkflowStepResult
+from PIL import Image, ExifTags
 
 
 _PROCESS_BUTTON_KEY = "process_image_button"
 _PROCESS_BUTTON_STATE_KEY = "process_image_requested"
+_VARIATION_STORE_KEY = "autoedit_variations"
+
+
+def _result_session_key(result: ProcessResult) -> str:
+    return result.created_at.isoformat()
+
+
+def _format_filesize(num_bytes: int) -> str:
+    if num_bytes < 1024:
+        return f"{num_bytes} B"
+    if num_bytes < 1024 ** 2:
+        return f"{num_bytes / 1024:.1f} KB"
+    return f"{num_bytes / (1024 ** 2):.1f} MB"
+
+
+def _extract_image_metadata(image_bytes: Optional[bytes]) -> Dict[str, str]:
+    if not image_bytes:
+        return {}
+
+    metadata: Dict[str, str] = {}
+    try:
+        metadata["File size"] = _format_filesize(len(image_bytes))
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            metadata["Dimensions"] = f"{image.width} × {image.height}px"
+            if image.format:
+                metadata["Format"] = image.format
+            if image.mode:
+                metadata["Color mode"] = image.mode
+
+            exif = image.getexif()
+            if exif:
+                readable: Dict[str, str] = {}
+                for tag, value in exif.items():
+                    tag_name = ExifTags.TAGS.get(tag, str(tag))
+                    if isinstance(value, bytes):
+                        try:
+                            value = value.decode("utf-8", errors="ignore")
+                        except Exception:  # pragma: no cover - defensive decode
+                            continue
+                    readable[tag_name] = str(value)
+
+                capture = readable.get("DateTimeOriginal") or readable.get("DateTime")
+                if capture:
+                    metadata["Captured"] = capture
+                camera = readable.get("Model")
+                if camera:
+                    metadata["Camera"] = camera
+    except Exception:  # pragma: no cover - metadata is best-effort
+        metadata.setdefault("File size", f"{len(image_bytes)} B")
+
+    return metadata
+
+
+def _metadata_section_html(title: str, metadata: Dict[str, str]) -> str:
+    if not metadata:
+        return ""
+
+    chips = []
+    for key, value in metadata.items():
+        chips.append(
+            """
+            <div class="metadata-chip">
+                <span>{key}</span>
+                <strong>{value}</strong>
+            </div>
+            """.format(key=html.escape(key), value=html.escape(value))
+        )
+
+    return """
+        <div class="result-card__item">
+            <span class="result-card__label">{title}</span>
+            <div class="metadata-list">{chips}</div>
+        </div>
+    """.format(title=html.escape(title), chips="".join(chips))
+
+
+def _store_variation_result(base_key: str, variation: ProcessResult) -> None:
+    store: Dict[str, List[ProcessResult]] = st.session_state.setdefault(_VARIATION_STORE_KEY, {})
+    variations = store.setdefault(base_key, [])
+    variations.insert(0, variation)
+    if len(variations) > 6:
+        del variations[6:]
+    st.session_state[_VARIATION_STORE_KEY] = store
+
+
+def _get_variations(base_key: str) -> List[ProcessResult]:
+    store: Dict[str, List[ProcessResult]] = st.session_state.get(_VARIATION_STORE_KEY, {})
+    return list(store.get(base_key, []))
+
+
+def _append_to_history(result: ProcessResult) -> None:
+    history: List[ProcessResult] = st.session_state.setdefault("edit_history", [])
+    history.insert(0, result)
+    if len(history) > 6:
+        del history[6:]
+
+
+def _render_copy_prompt_button(prompt: str) -> None:
+    safe_prompt = json.dumps(prompt)
+    st.markdown(
+        """
+        <div class="stButton">
+            <button type="button" onclick="const btn=this;const original=btn.innerText;navigator.clipboard.writeText({prompt});btn.innerText='Prompt copied!';setTimeout(()=>btn.innerText=original,1600);">Copy refined prompt</button>
+        </div>
+        """.format(prompt=safe_prompt),
+        unsafe_allow_html=True,
+    )
+
+
+def _render_primary_actions(result: ProcessResult) -> None:
+    st.markdown("<div class=\"cta-row\">", unsafe_allow_html=True)
+    cta_cols = st.columns(3, gap="large")
+
+    image_format = imghdr.what(None, h=result.final_image) or "png"
+    if image_format == "jpg":
+        image_format = "jpeg"
+    filename = f"autoedit-render-{result.created_at.strftime('%Y%m%d-%H%M%S')}.{image_format}"
+
+    with cta_cols[0]:
+        st.download_button(
+            "Download image",
+            data=result.final_image,
+            file_name=filename,
+            mime=f"image/{image_format}",
+            use_container_width=True,
+        )
+
+    with cta_cols[1]:
+        if result.refined_prompt:
+            _render_copy_prompt_button(result.refined_prompt)
+        else:
+            st.button(
+                "Copy refined prompt",
+                disabled=True,
+                use_container_width=True,
+                key=f"copy-disabled-{_result_session_key(result)}",
+            )
+
+    with cta_cols[2]:
+        st.button(
+            "Share (coming soon)",
+            disabled=True,
+            use_container_width=True,
+            key=f"share-disabled-{_result_session_key(result)}",
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _handle_variation_trigger(
+    result: ProcessResult, *, tweak: str, label: str, base_key: str
+) -> None:
+    source_image = result.original_image or result.final_image
+    if not source_image:
+        st.warning("A base image is required to generate variations.")
+        return
+
+    seed_prompt = result.user_prompt or result.refined_prompt or ""
+    variation_prompt = (seed_prompt + " " + tweak).strip()
+
+    processor = ImageProcessor()
+    with st.spinner(f"Generating variation: {label}"):
+        variation = processor.process(
+            prompt=variation_prompt,
+            image_bytes=source_image,
+        )
+
+    if not variation.final_image:
+        st.warning("Variation request completed without producing an image.")
+        return
+
+    _store_variation_result(base_key, variation)
+    _append_to_history(variation)
+    st.toast(f"Variation '{label}' ready!")
+
+
+def _render_variations(result: ProcessResult) -> None:
+    base_key = _result_session_key(result)
+    presets: List[Tuple[str, str]] = [
+        ("✨ Dreamier lighting", "with soft, cinematic lighting and gentle bloom"),
+        ("🎨 Bolder palette", "featuring richer saturation and contrast"),
+        ("🧪 Experimental twist", "reimagined with unexpected textures and details"),
+    ]
+
+    st.markdown("<section class=\"variation-section\">", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div>
+            <h3>Variations</h3>
+            <p>Explore quick prompt riffs to iterate on this concept without leaving the flow.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<div class=\"variation-actions\">", unsafe_allow_html=True)
+    action_cols = st.columns(len(presets), gap="small")
+    triggered: Optional[Tuple[str, str]] = None
+    for idx, (label, tweak) in enumerate(presets):
+        if action_cols[idx].button(
+            label,
+            key=f"variation-{base_key}-{idx}",
+            use_container_width=True,
+        ):
+            triggered = (label, tweak)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if triggered:
+        _handle_variation_trigger(
+            result,
+            tweak=triggered[1],
+            label=triggered[0],
+            base_key=base_key,
+        )
+
+    variations = _get_variations(base_key)
+    if variations:
+        cards: List[str] = []
+        for variation in variations:
+            if not variation.final_image:
+                continue
+            image_format = imghdr.what(None, h=variation.final_image) or "png"
+            if image_format == "jpg":
+                image_format = "jpeg"
+            encoded = base64.b64encode(variation.final_image).decode("utf-8")
+            timestamp = variation.created_at.strftime("%b %d, %Y · %H:%M")
+            prompt_preview = variation.refined_prompt or variation.user_prompt or "Variation"
+            prompt_summary = shorten(" ".join(prompt_preview.split()), width=120, placeholder="…")
+            cards.append(
+                """
+                <article class="variation-card">
+                    <img src="data:image/{fmt};base64,{image}" alt="Variation" loading="lazy" />
+                    <div class="variation-card__body">
+                        <div class="variation-card__title">{prompt}</div>
+                        <div class="variation-card__meta">{timestamp}</div>
+                    </div>
+                </article>
+                """.format(
+                    fmt=image_format,
+                    image=encoded,
+                    prompt=html.escape(prompt_summary),
+                    timestamp=html.escape(timestamp),
+                )
+            )
+
+        if cards:
+            st.markdown(
+                """<div class="variation-grid">{cards}</div>""".format(cards="".join(cards)),
+                unsafe_allow_html=True,
+            )
+    else:
+        st.caption("Variations will appear here after you request an alternate render.")
+
+    st.markdown("</section>", unsafe_allow_html=True)
 
 
 def apply_global_styles() -> None:
@@ -96,10 +353,73 @@ def apply_global_styles() -> None:
                 color: var(--autoedit-secondary);
             }
 
+            .comparison-panel {
+                background: var(--autoedit-card);
+                border-radius: 20px;
+                padding: 1.5rem;
+                box-shadow: 0 18px 40px rgba(12, 26, 42, 0.08);
+                margin-bottom: 1.5rem;
+            }
+
+            .comparison-panel__mode {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1.5rem;
+                gap: 1rem;
+            }
+
+            .comparison-panel__grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 1.5rem;
+            }
+
+            .comparison-panel__image {
+                border-radius: 16px;
+                overflow: hidden;
+                box-shadow: 0 18px 36px rgba(12, 26, 42, 0.08);
+                background: rgba(12, 26, 42, 0.04);
+            }
+
+            .comparison-panel__image img {
+                display: block;
+                width: 100%;
+            }
+
             .result-card ul {
                 padding-left: 1.2rem;
                 color: rgba(12, 26, 42, 0.72);
                 line-height: 1.7;
+            }
+
+            .metadata-list {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 1rem;
+                margin-top: 0.75rem;
+            }
+
+            .metadata-chip {
+                background: rgba(11, 132, 243, 0.08);
+                border-radius: 14px;
+                padding: 0.65rem 0.85rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+
+            .metadata-chip span {
+                font-size: 0.75rem;
+                font-weight: 600;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: rgba(12, 26, 42, 0.55);
+            }
+
+            .metadata-chip strong {
+                font-size: 0.95rem;
+                color: var(--autoedit-secondary);
             }
 
             .result-card--metadata {
@@ -247,6 +567,80 @@ def apply_global_styles() -> None:
                 background: rgba(209, 67, 67, 0.4);
             }
 
+            .cta-row {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 1rem;
+                margin: 2rem 0 2.5rem;
+            }
+
+            .cta-row button,
+            .cta-row .stDownloadButton button {
+                width: 100%;
+            }
+
+            .cta-row .share-placeholder button[disabled] {
+                background: rgba(12, 26, 42, 0.08) !important;
+                color: rgba(12, 26, 42, 0.45) !important;
+                border: none !important;
+            }
+
+            .variation-section {
+                margin-top: 2rem;
+                background: var(--autoedit-card);
+                border-radius: 22px;
+                padding: 1.75rem;
+                box-shadow: 0 18px 40px rgba(12, 26, 42, 0.08);
+                display: flex;
+                flex-direction: column;
+                gap: 1.75rem;
+            }
+
+            .variation-actions {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 0.75rem;
+            }
+
+            .variation-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 1.5rem;
+            }
+
+            .variation-card {
+                background: rgba(12, 26, 42, 0.04);
+                border-radius: 16px;
+                overflow: hidden;
+                box-shadow: inset 0 0 0 1px rgba(12, 26, 42, 0.06);
+                display: flex;
+                flex-direction: column;
+            }
+
+            .variation-card img {
+                width: 100%;
+                display: block;
+            }
+
+            .variation-card__body {
+                padding: 0.85rem 1rem 1.1rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+
+            .variation-card__title {
+                font-weight: 600;
+                color: var(--autoedit-secondary);
+            }
+
+            .variation-card__meta {
+                font-size: 0.75rem;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: rgba(12, 26, 42, 0.45);
+            }
+
             .history-panel {
                 margin-top: 1.75rem;
                 background: var(--autoedit-card);
@@ -375,6 +769,13 @@ def apply_global_styles() -> None:
 
                 .workflow-progress__steps {
                     flex-direction: column;
+                }
+
+                .comparison-panel__grid,
+                .cta-row,
+                .variation-actions,
+                .variation-grid {
+                    grid-template-columns: 1fr;
                 }
 
                 .workflow-progress__step {
@@ -524,15 +925,58 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
         st.info("Upload an image and craft a prompt to see your results here.")
         return
 
+    before_image = result.original_image or result.final_image
     main_col, side_col = st.columns((7, 5), gap="large")
+
+    comparison_key = f"comparison-{_result_session_key(result)}"
     with main_col:
-        st.image(result.final_image, caption="Edited visual", use_column_width=True)
+        st.markdown("<div class=\"comparison-panel\">", unsafe_allow_html=True)
+        header_cols = st.columns((2, 3))
+        with header_cols[0]:
+            st.markdown("#### Before & After")
+        with header_cols[1]:
+            view_mode = st.radio(
+                "Comparison view",
+                ("Side-by-side", "Toggle"),
+                index=0,
+                horizontal=True,
+                key=f"{comparison_key}-mode",
+                label_visibility="collapsed",
+            )
+
+        if view_mode == "Side-by-side":
+            image_cols = st.columns(2, gap="large")
+            with image_cols[0]:
+                st.caption("Original upload")
+                st.image(before_image, use_column_width=True)
+            with image_cols[1]:
+                st.caption("Refined output")
+                st.image(result.final_image, use_column_width=True)
+        else:
+            selection = st.radio(
+                "Select image",
+                ("Original", "Refined"),
+                index=1,
+                horizontal=True,
+                key=f"{comparison_key}-focus",
+            )
+            st.caption("Refined output" if selection == "Refined" else "Original upload")
+            st.image(result.final_image if selection == "Refined" else before_image, use_column_width=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        _render_primary_actions(result)
+        _render_variations(result)
 
     user_brief = html.escape(result.user_prompt or "No brief provided.")
     caption_text = html.escape(result.caption or "No caption generated.")
     refined_prompt = html.escape(result.refined_prompt or "No refined prompt available.")
 
-    metadata_html = f"""
+    original_metadata = _extract_image_metadata(before_image)
+    generated_metadata = _extract_image_metadata(result.final_image)
+    generated_metadata.setdefault("Generated", result.created_at.strftime("%b %d, %Y · %H:%M"))
+
+    metadata_html = """
         <div class="result-card result-card--metadata">
             <h3>Workflow Summary</h3>
             <div class="result-card__item">
@@ -547,8 +991,16 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
                 <span class="result-card__label">Refined edit prompt</span>
                 <p>{refined_prompt}</p>
             </div>
+            {original_section}
+            {generated_section}
         </div>
-    """
+    """.format(
+        user_brief=user_brief,
+        caption_text=caption_text,
+        refined_prompt=refined_prompt,
+        original_section=_metadata_section_html("Original upload", original_metadata),
+        generated_section=_metadata_section_html("Generated output", generated_metadata),
+    )
 
     with side_col:
         side_col.markdown(metadata_html, unsafe_allow_html=True)
@@ -563,7 +1015,7 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
         )
 
     if step_items:
-        main_col.markdown(
+        side_col.markdown(
             """
             <div class="result-card result-card--pipeline">
                 <h3>Pipeline Details</h3>
