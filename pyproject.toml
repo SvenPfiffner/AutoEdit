@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autoedit"
+version = "0.1.0"
+description = "A Streamlit-based prototype for guided image editing."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{name = "AutoEdit"}]
+dependencies = [
+    "streamlit>=1.31",
+    "Pillow>=10.0.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
