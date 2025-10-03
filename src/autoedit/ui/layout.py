@@ -128,6 +128,10 @@ def apply_global_styles() -> None:
                 line-height: 1.7;
             }
 
+            .section-heading--wide .section-heading__subtitle {
+                max-width: none;
+            }
+
             .section-heading + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div {
                 background: var(--autoedit-card);
                 border-radius: 26px;
@@ -428,6 +432,21 @@ def apply_global_styles() -> None:
                 border: 1px solid rgba(11, 132, 243, 0.05);
             }
 
+            .history-panel--minimal {
+                background: transparent;
+                box-shadow: none;
+                border: none;
+                padding: 0;
+                margin-top: 0;
+                max-height: none;
+                gap: 0.85rem;
+            }
+
+            .history-panel--minimal .history-panel__count--standalone {
+                align-self: flex-start;
+                margin-bottom: 0.35rem;
+            }
+
             .history-panel__title {
                 display: flex;
                 align-items: center;
@@ -613,7 +632,7 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
     """Display the prompt input and image upload widgets."""
     st.markdown(
         """
-        <div class="section-heading">
+        <div class="section-heading section-heading--wide">
             <span class="section-heading__eyebrow">New concept</span>
             <span class="section-heading__title">Set your creative direction</span>
             <p class="section-heading__subtitle">
@@ -765,13 +784,13 @@ def render_workflow_progress(
     )
 
 
-def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult]) -> None:
+def render_output_panel(result: ProcessResult) -> None:
     """Show the processed image results alongside workflow insights."""
 
     st.divider()
     st.markdown(
         """
-        <div class="section-heading section-heading--dense">
+        <div class="section-heading section-heading--dense section-heading--wide">
             <span class="section-heading__eyebrow">Results</span>
             <span class="section-heading__title">Rendered concept</span>
             <p class="section-heading__subtitle">Review the generated visual, workflow summary, and previous explorations.</p>
@@ -815,29 +834,8 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
         side_col.markdown('<div class="section-subheader">Workflow summary</div>', unsafe_allow_html=True)
         side_col.markdown(metadata_html, unsafe_allow_html=True)
 
-    step_items: List[str] = []
-    for step in result.steps:
-        detail = html.escape(step.detail or "")
-        if not detail:
-            continue
-        step_items.append(
-            f"<li><strong>{html.escape(step.name)}:</strong> {detail}</li>"
-        )
-
-    if step_items:
-        main_col.markdown(
-            """
-            <div class="result-card result-card--pipeline">
-                <h3>Pipeline Details</h3>
-                <ul>{items}</ul>
-            </div>
-            """.format(items="".join(step_items)),
-            unsafe_allow_html=True,
-        )
-
-    with side_col:
-        side_col.markdown('<div class="section-subheader">Recent explorations</div>', unsafe_allow_html=True)
-        render_past_edits(history, container=side_col)
+    # Pipeline details are intentionally omitted to keep the results view focused on
+    # the hero render and distilled workflow summary.
 
 
 
@@ -845,6 +843,7 @@ def render_past_edits(
     history: Sequence[ProcessResult],
     *,
     container: Optional[DeltaGenerator] = None,
+    show_header: bool = True,
 ) -> None:
     """Display a panel of previous image edits if available."""
 
@@ -893,23 +892,52 @@ def render_past_edits(
             )
         )
 
+    panel_classes = ["history-panel"]
+    if not show_header:
+        panel_classes.append("history-panel--minimal")
+
     if not entries:
+        header_markup = (
+            '<div class="history-panel__title">Past Generations'
+            '<span class="history-panel__count">0</span></div>'
+            if show_header
+            else ''
+        )
         target.markdown(
-            '<div class="history-panel">'
-            '<div class="history-panel__title">Past Generations<span class="history-panel__count">0</span></div>'
-            '<div class="history-panel__empty">Past edits will appear here once available.</div>'
-            '</div>',
+            '<div class="{classes}">'.format(classes=" ".join(panel_classes))
+            + header_markup
+            + '<div class="history-panel__empty">Past edits will appear here once available.</div>'
+            + '</div>',
             unsafe_allow_html=True,
         )
         return
 
+    if show_header:
+        header_markup = (
+            '<div class="history-panel__title">Past Generations'
+            '<span class="history-panel__count">{count}</span></div>'.format(count=len(entries))
+        )
+    else:
+        header_markup = (
+            '<div class="history-panel__count history-panel__count--standalone">{count} saved</div>'.format(
+                count=len(entries)
+            )
+        )
+
     target.markdown(
-        '<div class="history-panel">'
-        '<div class="history-panel__title">Past Generations<span class="history-panel__count">{count}</span></div>'
-        '{entries}'
-        '</div>'.format(count=len(entries), entries="".join(entries)),
+        '<div class="{classes}">'.format(classes=" ".join(panel_classes))
+        + header_markup
+        + ''.join(entries)
+        + '</div>',
         unsafe_allow_html=True,
     )
+
+
+def render_history_sidebar(history: Sequence[ProcessResult]) -> None:
+    """Surface the past generations list within a collapsible sidebar panel."""
+
+    expander = st.sidebar.expander("Past Generations", expanded=False)
+    render_past_edits(history, container=expander, show_header=False)
 
 
 def render_footer() -> None:

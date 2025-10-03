@@ -35,12 +35,14 @@ def run() -> None:
         if layout.user_requested_processing():
             processed_result = _process_image(user_prompt, uploaded_image)
             if processed_result:
-                history: List[ProcessResult] = (
-                    st.session_state.get("edit_history", [])[1:]
-                    if st.session_state.get("edit_history")
-                    else []
-                )
-                layout.render_output_panel(processed_result, history)
+                layout.render_output_panel(processed_result)
+
+    sidebar_history: List[ProcessResult] = (
+        st.session_state.get("edit_history", [])[1:]
+        if st.session_state.get("edit_history")
+        else []
+    )
+    layout.render_history_sidebar(sidebar_history)
 
     layout.render_footer()
 
