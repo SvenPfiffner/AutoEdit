@@ -45,11 +45,11 @@ Comparison between our cascaded approach and vanilla QWEN-Image-Edit (4-bit):
 
 | PROMPT | SOURCE | OURS | QWEN Image-Edit 4bit |
 |--------|--------|------|---------------------|
-| *[Placeholder]* | <img src="resources/source_image/1.jpg" width="300"> | <img src="resources/ours/1.jpg" width="300"> | <img src="resources/vanilla_qwen/1.jpg" width="300"> |
-| *[Placeholder]* | <img src="resources/source_image/2.jpg" width="300"> | <img src="resources/ours/2.jpg" width="300"> | <img src="resources/vanilla_qwen/2.jpg" width="300"> |
-| *[Placeholder]* | <img src="resources/source_image/3.jpeg" width="300"> | <img src="resources/ours/3.jpg" width="300"> | <img src="resources/vanilla_qwen/3.jpg" width="300"> |
-| *[Placeholder]* | <img src="resources/source_image/4.jpeg" width="300"> | <img src="resources/ours/4.jpg" width="300"> | <img src="resources/vanilla_qwen/4.jpg" width="300"> |
-| *[Placeholder]* | <img src="resources/source_image/5.jpg" width="300"> | <img src="resources/ours/5.jpg" width="300"> | <img src="resources/vanilla_qwen/5.jpg" width="300"> |
+| The woman looks lonely, add a friend next to her | <img src="resources/source_image/1.jpg" width="300"> | <img src="resources/ours/1.jpg" width="300"> | <img src="resources/vanilla_qwen/1.jpg" width="300"> |
+| Remove watermarks | <img src="resources/source_image/2.jpg" width="300"> | <img src="resources/ours/2.jpg" width="300"> | <img src="resources/vanilla_qwen/2.jpg" width="300"> |
+| Turn this kitten into a nerdy supervillain | <img src="resources/source_image/3.jpeg" width="300"> | <img src="resources/ours/3.jpg" width="300"> | <img src="resources/vanilla_qwen/3.jpg" width="300"> |
+| The person occupying this table is really thirsty | <img src="resources/source_image/4.jpeg" width="300"> | <img src="resources/ours/4.jpg" width="300"> | <img src="resources/vanilla_qwen/4.jpg" width="300"> |
+| Oh no! This woman seems to be cold, do something about it | <img src="resources/source_image/5.jpg" width="300"> | <img src="resources/ours/5.jpg" width="300"> | <img src="resources/vanilla_qwen/5.jpg" width="300"> |
 
 *Notice how our approach better preserves the original subject, composition, and realism while still applying the requested edits.*
 
@@ -61,7 +61,7 @@ This is an **early proof of concept**. The core pipeline works and produces good
 - No streamlined installation process yet (you'll need to manually install PyTorch, transformers, diffusers, etc.)
 - Models download on first run (~20GB total)
 - Bugs and edge cases exist
-- Requires GPU with ~6-8GB VRAM
+- Requires GPU with ~20GB VRAM
 
 A stable release with proper packaging and documentation is coming soon. For now, this is a research prototype.
 
@@ -103,36 +103,3 @@ If you use this in commercial work, academic research, or public projects, pleas
   url = {https://github.com/SvenPfiffner/AutoEdit}
 }
 ```
-
----
-
-**Built with:** Streamlit • PyTorch • Transformers • Diffusers • QWEN-Image-Edit • JoyCaption
-
-The project follows a `src`-based layout to keep import paths explicit and to
-support packaging should the application grow into a larger service.
-
-## Getting started
-
-1. Create and activate a virtual environment (optional but recommended).
-2. Install dependencies:
-
-   ```bash
-   pip install -e .
-   ```
-
-3. Launch the Streamlit application:
-
-   ```bash
-   streamlit run src/autoedit/app.py
-   ```
-
-4. Open the URL displayed in the terminal to access the interface. Upload an
-   image, provide a prompt, and click **Render Concept** to preview the current
-   placeholder processing flow (which simply echoes back the original image).
-
-## Next steps
-
-The service layer is intentionally lightweight. It exposes a single
-`ImageProcessor` class so that future development can incorporate advanced
-model calls, prompt engineering, or multi-step image processing pipelines
-without rewriting the UI.
