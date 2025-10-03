@@ -8,6 +8,8 @@ import torch
 
 from diffusers import QwenImageEditPipeline
 
+from services.prompts import QWEN_POSITIVE_PROMPT, QWEN_NEGATIVE_PROMPT
+
 def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
         
     image = Image.open(io.BytesIO(image_bytes))
@@ -21,10 +23,10 @@ def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     prompt = refined_prompt + ". mantain the character face, eyes, skin details, lightning, pose, position and overall composition)"
     inputs = {
         "image": image,
-        "prompt": prompt,
+        "prompt": prompt + ", " + QWEN_POSITIVE_PROMPT,
         "generator": torch.manual_seed(0),
         "true_cfg_scale": 4.0,
-        "negative_prompt": "low quality, bad anatomy, extra fingers, missing fingers, extra limbs, missing limbs",
+        "negative_prompt": QWEN_NEGATIVE_PROMPT,
         "num_inference_steps": 20, # even 10 steps should be enough in many cases
     }
 

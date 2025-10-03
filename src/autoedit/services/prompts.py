@@ -46,6 +46,6 @@ Output: add small black tribal tattoo on right forearm
 
 User: """
 
-QWEN_POSITIVE_PROMPT = ""
+QWEN_POSITIVE_PROMPT = "mantain the character face, eyes, skin details, lightning, pose, position and overall"
 
-QWEN_NEGATIVE_PROMPT = ""
+QWEN_NEGATIVE_PROMPT = "low quality, bad anatomy, extra fingers, missing fingers, extra limbs, missing limbs"

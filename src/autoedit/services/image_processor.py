@@ -51,7 +51,7 @@ class QwenImageEditor:
     """Stands in for the QWEN-Image-Edit model."""
 
     def apply_edit(self, image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
-        return image_bytes#edit_image(image_bytes, refined_prompt)
+        return edit_image(image_bytes, refined_prompt)
 
 
 ProgressCallback = Callable[[int, str, str], None]
