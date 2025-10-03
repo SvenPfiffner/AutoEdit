@@ -41,11 +41,17 @@ User Input → [JoyCaption Translation] → [QWEN Image Editing] → Output
 
 ## Examples
 
-| User Input | JoyCaption Translation | Result |
-|------------|----------------------|---------|
-| "make this look cinematic" | shift color grading to cool blue tones, add subtle neon highlights, increase contrast slightly | Film-grade color grading |
-| "add glasses" | add thin-framed glasses | Precise object addition |
-| "make her look like a fantasy elf" | add subtle pointed ears, shift eye color to bright green, add silver circlet | Multi-edit transformation |
+Comparison between our cascaded approach and vanilla QWEN-Image-Edit (4-bit):
+
+| PROMPT | OURS | QWEN Image-Edit 4bit |
+|--------|------|---------------------|
+| *[Placeholder]* | <img src="resources/ours/1.jpg" width="300"> | <img src="resources/vanilla_qwen/1.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/ours/2.jpg" width="300"> | <img src="resources/vanilla_qwen/2.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/ours/3.jpg" width="300"> | <img src="resources/vanilla_qwen/3.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/ours/4.jpg" width="300"> | <img src="resources/vanilla_qwen/4.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/ours/5.jpg" width="300"> | <img src="resources/vanilla_qwen/5.jpg" width="300"> |
+
+*Notice how our approach better preserves the original subject, composition, and realism while still applying the requested edits.*
 
 ---
 
