@@ -43,13 +43,13 @@ User Input → [JoyCaption Translation] → [QWEN Image Editing] → Output
 
 Comparison between our cascaded approach and vanilla QWEN-Image-Edit (4-bit):
 
-| PROMPT | OURS | QWEN Image-Edit 4bit |
-|--------|------|---------------------|
-| *[Placeholder]* | <img src="resources/ours/1.jpg" width="300"> | <img src="resources/vanilla_qwen/1.jpg" width="300"> |
-| *[Placeholder]* | <img src="resources/ours/2.jpg" width="300"> | <img src="resources/vanilla_qwen/2.jpg" width="300"> |
-| *[Placeholder]* | <img src="resources/ours/3.jpg" width="300"> | <img src="resources/vanilla_qwen/3.jpg" width="300"> |
-| *[Placeholder]* | <img src="resources/ours/4.jpg" width="300"> | <img src="resources/vanilla_qwen/4.jpg" width="300"> |
-| *[Placeholder]* | <img src="resources/ours/5.jpg" width="300"> | <img src="resources/vanilla_qwen/5.jpg" width="300"> |
+| PROMPT | SOURCE | OURS | QWEN Image-Edit 4bit |
+|--------|--------|------|---------------------|
+| *[Placeholder]* | <img src="resources/source_image/1.jpg" width="300"> | <img src="resources/ours/1.jpg" width="300"> | <img src="resources/vanilla_qwen/1.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/source_image/2.jpg" width="300"> | <img src="resources/ours/2.jpg" width="300"> | <img src="resources/vanilla_qwen/2.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/source_image/3.jpeg" width="300"> | <img src="resources/ours/3.jpg" width="300"> | <img src="resources/vanilla_qwen/3.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/source_image/4.jpeg" width="300"> | <img src="resources/ours/4.jpg" width="300"> | <img src="resources/vanilla_qwen/4.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/source_image/5.jpg" width="300"> | <img src="resources/ours/5.jpg" width="300"> | <img src="resources/vanilla_qwen/5.jpg" width="300"> |
 
 *Notice how our approach better preserves the original subject, composition, and realism while still applying the requested edits.*
 
