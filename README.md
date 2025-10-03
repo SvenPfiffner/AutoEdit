@@ -9,18 +9,19 @@ future backend enhancements.
 
 # AutoEdit Studio ✨
 
-**A cascaded vision-language approach to natural-language image editing**
+**Natural-language image editing through cascaded vision-language translation**
 
-AutoEdit Studio implements a novel two-stage pipeline that bridges the semantic gap between casual user requests and precise image editing instructions. By leveraging a vision-language model as an intelligent prompt translator, the system enables users to describe edits naturally while maintaining the specificity required by diffusion-based editing models.
+A proof-of-concept exploring how vision-language models can bridge the gap between casual user prompts and precise image editing instructions. Built by Sven Pfiffner as a research project.
 
 ---
 
-## 🎯 Core Innovation
+## The Problem
 
-### The Challenge
-Modern image editing models like QWEN-Image-Edit excel at applying precise modifications but struggle with ambiguous instructions. Users naturally express intent through high-level concepts ("make it vintage," "make him look rich"), creating a semantic mismatch that degrades editing quality.
+Image editing models like QWEN-Image-Edit work great with specific instructions ("add sepia tone, reduce saturation"), but struggle with how people actually talk ("make it vintage"). If you feed vague prompts directly to diffusion models, they tend to reimagine the entire scene instead of editing what's there—changing subjects, hallucinating elements, losing the original composition.
 
-### The Solution: Cascaded Vision-Language Architecture
+## The Approach
+
+This project uses a two-stage pipeline:
 
 ```
 User Input → [JoyCaption Translation] → [QWEN Image Editing] → Output
@@ -28,122 +29,71 @@ User Input → [JoyCaption Translation] → [QWEN Image Editing] → Output
                          saturation, add film grain"
 ```
 
-**Stage 1: Vision-Language Translation (JoyCaption)**  
-The system employs a fine-tuned LLaVA-based model (JoyCaption) that simultaneously processes both the input image and user prompt. This vision-aware translation layer:
+**Stage 1 - JoyCaption (LLaVA-based):** Looks at both your prompt and the actual image, then translates vague requests into 1-4 concrete, atomic edits. It's explicitly constrained to preserve faces, identities, composition, and pose unless you specifically ask to change them.
 
-- Grounds abstract concepts in visual context ("vintage" → specific color grading parameters)
-- Decomposes complex requests into atomic editing operations
-- Preserves structural constraints (identity, composition, pose) unless explicitly modified
-- Generates 1-4 concrete editing directives optimized for downstream diffusion models
+**Why this matters:** By breaking down abstract concepts into specific operations *before* diffusion, we prevent the model from going rogue. The edit modifies *the image*, not *a reimagining of it*. Subjects stay realistic, composition stays intact.
 
-**Critical advantage:** By translating vague prompts into specific, minimal edits *before* diffusion, the system prevents scope creep where the model might reimagine the entire scene. Direct prompts like "make it vintage" can cause diffusion models to hallucinate new elements or alter the subject. JoyCaption's constrained translation ensures QWEN applies targeted modifications while keeping the original subject, composition, and photorealism intact—the edit affects *the image*, not *a reimagining of it*.
-
-**Stage 2: Instruction-Guided Image Editing (QWEN)**  
-The refined prompts feed into QWEN-Image-Edit, a 4-bit quantized diffusion model that applies targeted modifications while maintaining image coherence. The cascade architecture ensures QWEN receives unambiguous instructions, dramatically improving editing fidelity.
+**Stage 2 - QWEN-Image-Edit:** Takes those specific instructions and applies them. Because it receives unambiguous directives, it can focus on targeted modifications while maintaining coherence.
 
 ---
 
-## 🔬 Technical Highlights
+---
 
-### Memory-Efficient Inference
-The system implements aggressive optimization to run dual large models on consumer hardware:
+## Examples
 
-- **Selective GPU Offloading**: JoyCaption's vision tower (~2-3GB VRAM) resides on GPU while the language model runs on CPU, reducing memory footprint by ~85%
-- **Model Persistence**: Both pipelines remain loaded between requests, eliminating cold-start latency
-- **Total VRAM Budget**: ~6-8GB for the complete pipeline (JoyCaption + QWEN)
+Comparison between our cascaded approach and vanilla QWEN-Image-Edit (4-bit):
 
-### Prompt Engineering
-Custom system prompts constrain JoyCaption's output space:
-- Enforces minimal edit sets (Occam's razor for image modifications)
-- Explicitly prohibits unsolicited changes to identity-preserving features
-- Produces comma-separated edit lists directly compatible with QWEN's conditioning mechanism
+| PROMPT | OURS | QWEN Image-Edit 4bit |
+|--------|------|---------------------|
+| *[Placeholder]* | <img src="resources/ours/1.jpg" width="300"> | <img src="resources/vanilla_qwen/1.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/ours/2.jpg" width="300"> | <img src="resources/vanilla_qwen/2.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/ours/3.jpg" width="300"> | <img src="resources/vanilla_qwen/3.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/ours/4.jpg" width="300"> | <img src="resources/vanilla_qwen/4.jpg" width="300"> |
+| *[Placeholder]* | <img src="resources/ours/5.jpg" width="300"> | <img src="resources/vanilla_qwen/5.jpg" width="300"> |
+
+*Notice how our approach better preserves the original subject, composition, and realism while still applying the requested edits.*
 
 ---
 
-## 📋 Project Structure
+## Current Status ⚠️
 
-```
-AutoEdit/
-├── src/autoedit/
-│   ├── app.py                      # Streamlit orchestration
-│   ├── services/
-│   │   ├── caption_service.py      # JoyCaption inference & CPU offloading
-│   │   ├── edit_service.py         # QWEN pipeline management
-│   │   ├── image_processor.py      # Workflow coordination
-│   │   └── prompts.py              # System prompts & constraints
-│   └── ui/
-│       └── layout.py               # Interface components
-├── tests/
-└── pyproject.toml
-```
+This is an **early proof of concept**. The core pipeline works and produces good results, but expect rough edges:
+- No streamlined installation process yet (you'll need to manually install PyTorch, transformers, diffusers, etc.)
+- Models download on first run (~20GB total)
+- Bugs and edge cases exist
+- Requires GPU with ~6-8GB VRAM
+
+A stable release with proper packaging and documentation is coming soon. For now, this is a research prototype.
 
 ---
 
-## 🚀 Getting Started
+## Running It
 
-### Prerequisites
-- Python ≥3.9
-- CUDA-capable GPU (6GB+ VRAM recommended)
-- ~20GB disk space for models
+If you want to try it anyway:
 
-### Installation
-
-1. **Clone and setup environment:**
 ```bash
+# Clone the repo
 git clone https://github.com/SvenPfiffner/AutoEdit.git
 cd AutoEdit
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-```
 
-2. **Install dependencies:**
-```bash
-pip install -e .
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118  # Adjust CUDA version
-pip install transformers diffusers accelerate
-```
+# Install dependencies (adjust for your CUDA version)
+pip install streamlit pillow torch transformers diffusers accelerate
 
-3. **Launch application:**
-```bash
+# Run the app
 streamlit run src/autoedit/app.py
 ```
 
-The interface will open at `http://localhost:8501`. Upload an image, describe your desired edits naturally, and watch the cascaded pipeline translate and apply your modifications! 🎨
+Models will download automatically on first run. Open the URL that appears, upload an image, and describe your edits naturally.
 
 ---
 
-## 🎨 Example Use Cases
-
-| User Input | JoyCaption Translation | Result |
-|------------|----------------------|---------|
-| "make this look cinematic" | shift color grading to cool blue tones, add subtle neon highlights, increase contrast slightly | Film-grade color grading applied |
-| "add glasses" | add thin-framed glasses | Precise object addition |
-| "make her look like a fantasy elf" | add subtle pointed ears, shift eye color to bright green, add silver circlet | Multi-edit character transformation |
-
----
-
-## 🧪 Research Context
-
-This implementation explores **semantic compression in multimodal pipelines**: vision-language models can act as learned codecs that map high-entropy natural language to low-entropy instruction sets optimized for downstream specialized models. The approach generalizes beyond image editing to any task requiring translation between human intent and machine-executable specifications.
-
-### Potential Extensions
-- Fine-tuning JoyCaption on domain-specific edit taxonomies
-- Multi-turn refinement with iterative feedback
-- Extension to video editing with temporal consistency constraints
-
----
-
-## 🤝 Collaboration & Citation
+## Contributing & Citation
 
 **Author:** Sven Pfiffner
 
-Contributions are welcomed! 🙌 For bugs, feature requests, or research discussions:
-1. Open an issue describing your idea
-2. Fork the repository
-3. Submit a merge request with your changes
+Want to help improve this? Open an issue or fork the repo and submit a merge request. All contributions welcome! 🙌
 
-### Citation
-If you use AutoEdit Studio in commercial applications, academic research, or public projects, please cite:
+If you use this in commercial work, academic research, or public projects, please cite:
 
 ```bibtex
 @software{pfiffner2025autoedit,
@@ -156,13 +106,7 @@ If you use AutoEdit Studio in commercial applications, academic research, or pub
 
 ---
 
-## 📄 License
-
-This project is released under an open-source license. Commercial and research use requires attribution (see Citation section above).
-
----
-
-**Built with:** Streamlit • PyTorch • Transformers • Diffusers • QWEN-Image-Edit • JoyCaption (LLaVA)
+**Built with:** Streamlit • PyTorch • Transformers • Diffusers • QWEN-Image-Edit • JoyCaption
 
 The project follows a `src`-based layout to keep import paths explicit and to
 support packaging should the application grow into a larger service.
