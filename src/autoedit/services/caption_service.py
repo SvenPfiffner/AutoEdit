@@ -90,15 +90,15 @@ def generate_caption(image_bytes: bytes, prompt: str) -> str:
     # Prepare inputs (this step injects the correct number of image tokens)
     inputs = processor(text=[prompt_str], images=[image], return_tensors="pt")
     
-    # With CPU offloading, inputs need careful device placement:
-    # - Vision tower on GPU processes pixel_values
-    # - Language model on CPU processes text tokens
-    # PyTorch will handle cross-device communication automatically
+    # With CPU offloading, move all inputs to CUDA first to avoid warnings
+    # The model will automatically handle moving them to CPU for CPU layers
     if torch.cuda.is_available():
-        # pixel_values go to GPU for vision tower
+        # Move all inputs to CUDA to satisfy transformers' device checking
+        # The model's device_map will handle efficient cross-device communication
         inputs["pixel_values"] = inputs["pixel_values"].to("cuda:0", dtype=torch.bfloat16)
-        # Keep text inputs on CPU where the language model lives
-        # This avoids unnecessary CPU<->GPU transfers
+        inputs["input_ids"] = inputs["input_ids"].to("cuda:0")
+        if "attention_mask" in inputs:
+            inputs["attention_mask"] = inputs["attention_mask"].to("cuda:0")
     else:
         # CPU-only mode
         inputs["pixel_values"] = inputs["pixel_values"].to(torch.float32)
