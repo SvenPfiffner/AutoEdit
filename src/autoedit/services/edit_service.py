@@ -33,24 +33,10 @@ def _get_pipeline():
     
     return _pipeline
 
+
 MODEL_PATH = "ovedrive/qwen-image-edit-4bit"
 
-
-def _load_pipeline() -> Optional[QwenImageEditPipeline]:  # type: ignore[name-defined]
-    if QwenImageEditPipeline is None:
-        return None
-
-    dtype = torch.bfloat16 if torch is not None else None
-    pipeline = QwenImageEditPipeline.from_pretrained(MODEL_PATH, torch_dtype=dtype)
-    if torch is not None and hasattr(pipeline, "to"):
-        try:  # pragma: no cover - env specific
-            pipeline.to("cuda")
-        except Exception:
-            pipeline.to("cpu")
-    return pipeline
-
-
-def _pipeline_edit(pipeline: QwenImageEditPipeline, image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
+def _pipeline_edit(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     image = Image.open(io.BytesIO(image_bytes))
     
     # Get cached pipeline
@@ -85,11 +71,6 @@ def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     if QwenImageEditPipeline is None or torch is None:
         return image_bytes
 
-
-    pipeline = _load_pipeline()
-    if pipeline is None:
-        print("Ohhhhhhhhh please")
-        return image_bytes
-    return _pipeline_edit(pipeline, image_bytes, refined_prompt)
+    return _pipeline_edit(image_bytes, refined_prompt)
 
 
