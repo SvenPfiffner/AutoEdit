@@ -31,28 +31,34 @@ def apply_global_styles() -> None:
         """
         <style>
             :root {
-                --autoedit-primary: #0B84F3;
-                --autoedit-secondary: #0C1A2A;
-                --autoedit-background: #F5F7FB;
-                --autoedit-card: #FFFFFF;
+                --autoedit-primary: #0b84f3;
+                --autoedit-secondary: #0c1a2a;
+                --autoedit-background: #f4f6fb;
+                --autoedit-card: #ffffff;
+                --autoedit-muted: rgba(12, 26, 42, 0.58);
+                --autoedit-border: rgba(12, 26, 42, 0.08);
+                --autoedit-shadow: 0 26px 60px rgba(12, 26, 42, 0.10);
             }
 
             body {
-                background: var(--autoedit-background);
+                background: linear-gradient(180deg, rgba(10, 23, 43, 0.02) 0%, rgba(10, 23, 43, 0.08) 100%);
             }
 
             .block-container {
                 padding-top: 2.5rem;
                 padding-bottom: 3.5rem;
-                max-width: 1180px;
+                max-width: 1220px;
             }
 
             .hero {
-                background: linear-gradient(135deg, rgba(11, 132, 243, 0.12), rgba(11, 132, 243, 0.02));
-                border-radius: 24px;
-                padding: 2.75rem 3rem;
-                box-shadow: 0 24px 60px rgba(12, 26, 42, 0.08);
-                margin-bottom: 2.5rem;
+                position: relative;
+                overflow: hidden;
+                background: radial-gradient(circle at top right, rgba(11, 132, 243, 0.16), transparent 55%),
+                            linear-gradient(135deg, rgba(11, 132, 243, 0.12), rgba(11, 132, 243, 0.02));
+                border-radius: 28px;
+                padding: 3rem 3.25rem;
+                box-shadow: var(--autoedit-shadow);
+                margin-bottom: 2.75rem;
             }
 
             .hero__badge {
@@ -63,31 +69,137 @@ def apply_global_styles() -> None:
                 font-size: 0.85rem;
                 text-transform: uppercase;
                 letter-spacing: 0.08em;
-                background: rgba(11, 132, 243, 0.12);
+                background: rgba(11, 132, 243, 0.14);
                 color: var(--autoedit-primary);
                 border-radius: 999px;
-                padding: 0.5rem 1.25rem;
+                padding: 0.45rem 1.35rem;
             }
 
             .hero__title {
-                font-size: 2.7rem;
+                font-size: clamp(2.4rem, 2.9vw, 3rem);
                 font-weight: 700;
                 color: var(--autoedit-secondary);
-                margin: 1.5rem 0 1rem;
+                margin: 1.35rem 0 1rem;
             }
 
             .hero__subtitle {
                 font-size: 1.1rem;
                 line-height: 1.8;
                 color: rgba(12, 26, 42, 0.72);
-                max-width: 48rem;
+                max-width: 50rem;
+            }
+
+            .hero__meta {
+                margin-top: 2rem;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.65rem;
+            }
+
+            .section-heading {
+                display: flex;
+                flex-direction: column;
+                gap: 0.6rem;
+                margin-bottom: 1.25rem;
+            }
+
+            .section-heading--dense {
+                margin-bottom: 0.75rem;
+            }
+
+            .section-heading__eyebrow {
+                font-size: 0.78rem;
+                letter-spacing: 0.16em;
+                text-transform: uppercase;
+                font-weight: 700;
+                color: var(--autoedit-primary);
+            }
+
+            .section-heading__title {
+                font-size: 1.8rem;
+                font-weight: 700;
+                color: var(--autoedit-secondary);
+            }
+
+            .section-heading__subtitle {
+                font-size: 1rem;
+                color: rgba(12, 26, 42, 0.68);
+                max-width: 48ch;
+                line-height: 1.7;
+            }
+
+            .section-heading + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div {
+                background: var(--autoedit-card);
+                border-radius: 26px;
+                padding: 1.75rem 1.9rem;
+                box-shadow: var(--autoedit-shadow);
+                border: 1px solid rgba(11, 132, 243, 0.06);
+                display: flex;
+                flex-direction: column;
+                gap: 1.3rem;
+            }
+
+            .section-heading.section-heading--dense + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div {
+                padding: 1.4rem 1.55rem;
+            }
+
+            .section-heading + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div > div:has(.section-subheader) {
+                gap: 1rem;
+            }
+
+            .section-subheader {
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: var(--autoedit-secondary);
+                margin-bottom: -0.35rem;
+            }
+
+            .helper-text {
+                font-size: 0.92rem;
+                color: rgba(12, 26, 42, 0.6);
+                line-height: 1.6;
+            }
+
+            .insight-card {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .insight-card__item {
+                background: rgba(11, 132, 243, 0.08);
+                border: 1px solid rgba(11, 132, 243, 0.16);
+                border-radius: 18px;
+                padding: 1rem 1.2rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+
+            .insight-card__item strong {
+                color: var(--autoedit-secondary);
+                font-size: 0.95rem;
+            }
+
+            .badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                border-radius: 999px;
+                padding: 0.35rem 0.9rem;
+                font-size: 0.75rem;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                background: rgba(11, 132, 243, 0.12);
+                color: var(--autoedit-primary);
             }
 
             .result-card {
                 background: var(--autoedit-card);
-                border-radius: 20px;
-                padding: 2rem;
-                box-shadow: 0 18px 40px rgba(12, 26, 42, 0.08);
+                border-radius: 24px;
+                padding: 1.9rem 2rem;
+                box-shadow: var(--autoedit-shadow);
             }
 
             .result-card h3 {
@@ -123,15 +235,16 @@ def apply_global_styles() -> None:
                 font-weight: 600;
                 text-transform: uppercase;
                 letter-spacing: 0.06em;
-                color: rgba(12, 26, 42, 0.58);
+                color: var(--autoedit-muted);
             }
 
             .workflow-progress {
-                margin: 1.5rem 0 2.5rem;
+                margin: 1.6rem 0 2.7rem;
                 background: var(--autoedit-card);
-                border-radius: 24px;
-                padding: 1.5rem 2rem;
-                box-shadow: 0 24px 54px rgba(12, 26, 42, 0.12);
+                border-radius: 26px;
+                padding: 1.6rem 2.1rem;
+                box-shadow: var(--autoedit-shadow);
+                border: 1px solid rgba(11, 132, 243, 0.06);
             }
 
             .workflow-progress__detail {
@@ -250,14 +363,15 @@ def apply_global_styles() -> None:
             .history-panel {
                 margin-top: 1.75rem;
                 background: var(--autoedit-card);
-                border-radius: 22px;
-                padding: 1.25rem 1.35rem;
-                box-shadow: 0 18px 40px rgba(12, 26, 42, 0.1);
+                border-radius: 24px;
+                padding: 1.35rem 1.45rem;
+                box-shadow: var(--autoedit-shadow);
                 display: flex;
                 flex-direction: column;
                 gap: 1rem;
                 max-height: 520px;
                 overflow-y: auto;
+                border: 1px solid rgba(11, 132, 243, 0.05);
             }
 
             .history-panel__title {
@@ -353,19 +467,31 @@ def apply_global_styles() -> None:
             }
 
             .stButton > button {
-                border-radius: 999px;
+                border-radius: 16px;
                 font-weight: 600;
                 letter-spacing: 0.02em;
-                padding: 0.85rem 1.8rem;
+                padding: 0.85rem 1.6rem;
+                box-shadow: 0 14px 24px rgba(11, 132, 243, 0.18);
+            }
+
+            .stButton > button:hover {
+                transform: translateY(-1px);
             }
 
             .stTextArea textarea {
-                border-radius: 20px;
-                box-shadow: inset 0 0 0 1px rgba(11, 132, 243, 0.08);
+                border-radius: 18px;
+                border: 1px solid rgba(11, 132, 243, 0.12);
+                box-shadow: inset 0 0 0 1px rgba(11, 132, 243, 0.04);
             }
 
             .stFileUploader > div > div {
-                border-radius: 20px;
+                border-radius: 18px;
+                border: 1px dashed rgba(11, 132, 243, 0.35);
+                background: rgba(11, 132, 243, 0.04);
+            }
+
+            .stCaption, .caption-text {
+                color: rgba(12, 26, 42, 0.6) !important;
             }
 
             @media (max-width: 1024px) {
@@ -396,6 +522,10 @@ def apply_global_styles() -> None:
                     max-height: none;
                 }
             }
+
+            .section-heading + div[data-testid="stHorizontalBlock"] .history-panel {
+                margin-top: 0;
+            }
         </style>
         """,
         unsafe_allow_html=True,
@@ -408,13 +538,17 @@ def render_header() -> None:
         """
         <div class="hero">
             <div class="hero__badge">AutoEdit Studio</div>
-            <h1 class="hero__title">Create standout visuals with tailored guidance</h1>
+            <h1 class="hero__title">Design refined iterations with creative intelligence</h1>
             <p class="hero__subtitle">
-                Upload an inspiration image, describe the transformation you envision,
-                and let AutoEdit craft the next iteration. This prototype currently
-                echoes your original upload, paving the way for future intelligent
-                enhancements.
+                AutoEdit pairs your art direction with guided editing steps so every upload
+                becomes a polished concept. Provide a reference visual and creative brief to
+                explore production-ready variations with confidence.
             </p>
+            <div class="hero__meta">
+                <span class="badge">Guided workflow</span>
+                <span class="badge">Reference aware</span>
+                <span class="badge">Caption &amp; refine</span>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -423,42 +557,101 @@ def render_header() -> None:
 
 def render_input_panel() -> Tuple[str, Optional[bytes]]:
     """Display the prompt input and image upload widgets."""
-    cols = st.columns((3, 2), gap="large")
+    st.markdown(
+        """
+        <div class="section-heading">
+            <span class="section-heading__eyebrow">New concept</span>
+            <span class="section-heading__title">Set your creative direction</span>
+            <p class="section-heading__subtitle">
+                Pair a detailed brief with a reference image to guide AutoEdit's captioning,
+                planning, and rendering workflow. Thoughtful prompts lead to the strongest iterations.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    submit_pressed = False
+    image_bytes: Optional[bytes] = None
+
+    cols = st.columns((7, 5), gap="large")
 
     with cols[0]:
+        st.markdown('<div class="section-subheader">Creative brief</div>', unsafe_allow_html=True)
         prompt = st.text_area(
-            "Creative Brief",
+            label="Creative brief",
             placeholder="Describe the aesthetic, tone, or changes you'd like to explore...",
-            help="Be as descriptive as you like—mention mood, color palettes, or artistic influences.",
+            help="Highlight mood, palette, composition, and any references to keep the system focused.",
             max_chars=800,
             key="autoedit_creative_brief",
+            label_visibility="collapsed",
         )
 
-    image_bytes: Optional[bytes] = None
-    with cols[1]:
+        st.markdown('<div class="section-subheader">Reference visual</div>', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
-            "Reference Visual",
+            "Reference visual",
             type=["png", "jpg", "jpeg", "webp"],
             help="High-quality PNG or JPEG works best. We'll handle the rest.",
             key="autoedit_reference_visual",
+            label_visibility="collapsed",
         )
 
         if uploaded_file is not None:
             image_bytes = uploaded_file.getvalue()
             st.image(image_bytes, caption="Uploaded reference", use_column_width=True)
 
-    action_cols = st.columns((3, 2), gap="large")
-    with action_cols[0]:
-        submit_pressed = st.button(
-            "Render Concept",
-            use_container_width=True,
-            type="primary",
-            help="Generate a refined visual concept using your prompt and reference.",
-            key=_PROCESS_BUTTON_KEY,
+        action_cols = st.columns((2.3, 1.7), gap="medium")
+        with action_cols[0]:
+            submit_pressed = st.button(
+                "Render Concept",
+                use_container_width=True,
+                type="primary",
+                help="Generate a refined visual concept using your prompt and reference.",
+                key=_PROCESS_BUTTON_KEY,
+            )
+
+        with action_cols[1]:
+            st.markdown(
+                """
+                <div class="insight-card__item" style="gap:0.25rem; background:rgba(11,132,243,0.05); border-style:dashed;">
+                    <strong>Workflow tip</strong>
+                    <span class="helper-text">Expect ~30s per render while captioning and planning complete.</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    with cols[1]:
+        st.markdown('<div class="section-subheader">Session guidance</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="insight-card">
+                <div class="insight-card__item">
+                    <strong>Align intent &amp; visuals</strong>
+                    <span class="helper-text">Summarize the story, subject, and finishing style so captioning stays precise.</span>
+                </div>
+                <div class="insight-card__item">
+                    <strong>Call out constraints</strong>
+                    <span class="helper-text">Mention what should remain unchanged—brand colors, layout anchors, or lighting.</span>
+                </div>
+                <div class="insight-card__item">
+                    <strong>Plan multi-step edits</strong>
+                    <span class="helper-text">AutoEdit sequences captioning, prompt refinement, and QWEN image edits for consistent results.</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
-    with action_cols[1]:
-        st.caption("Processing may take a moment as the workflow runs each stage.")
+        st.markdown('<div class="section-subheader">Need inspiration?</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="insight-card__item">
+                <span class="helper-text">Try contrasting palettes like “soft dusk pastels with metallic accents” or specify lens effects such as “35mm depth with gentle film grain.”</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.session_state[_PROCESS_BUTTON_STATE_KEY] = submit_pressed
 
@@ -518,7 +711,16 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
     """Show the processed image results alongside workflow insights."""
 
     st.divider()
-    st.markdown("## Rendered Concept")
+    st.markdown(
+        """
+        <div class="section-heading section-heading--dense">
+            <span class="section-heading__eyebrow">Results</span>
+            <span class="section-heading__title">Rendered concept</span>
+            <p class="section-heading__subtitle">Review the generated visual, workflow summary, and previous explorations.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if not result or not result.final_image:
         st.info("Upload an image and craft a prompt to see your results here.")
@@ -526,6 +728,7 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
 
     main_col, side_col = st.columns((7, 5), gap="large")
     with main_col:
+        st.markdown('<div class="section-subheader">Final render</div>', unsafe_allow_html=True)
         st.image(result.final_image, caption="Edited visual", use_column_width=True)
 
     user_brief = html.escape(result.user_prompt or "No brief provided.")
@@ -551,6 +754,7 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
     """
 
     with side_col:
+        side_col.markdown('<div class="section-subheader">Workflow summary</div>', unsafe_allow_html=True)
         side_col.markdown(metadata_html, unsafe_allow_html=True)
 
     step_items: List[str] = []
@@ -574,6 +778,7 @@ def render_output_panel(result: ProcessResult, history: Sequence[ProcessResult])
         )
 
     with side_col:
+        side_col.markdown('<div class="section-subheader">Recent explorations</div>', unsafe_allow_html=True)
         render_past_edits(history, container=side_col)
 
 
