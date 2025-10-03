@@ -87,7 +87,7 @@ class ImageProcessor:
             The structured output of the workflow, including placeholder
             captions and refined prompts.
         """
-        DEBUG_MODE = True
+        DEBUG_MODE = False
         if DEBUG_MODE:
 
             if not image_bytes:
