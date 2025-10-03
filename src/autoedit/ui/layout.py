@@ -238,6 +238,36 @@ def apply_global_styles() -> None:
                 color: var(--autoedit-muted);
             }
 
+            @keyframes workflowPulse {
+                0% {
+                    box-shadow: 0 0 0 0 rgba(11, 132, 243, 0.32);
+                }
+                70% {
+                    box-shadow: 0 0 0 12px rgba(11, 132, 243, 0);
+                }
+                100% {
+                    box-shadow: 0 0 0 0 rgba(11, 132, 243, 0);
+                }
+            }
+
+            @keyframes workflowShimmer {
+                0% {
+                    background-position: 0% 50%;
+                }
+                100% {
+                    background-position: 200% 50%;
+                }
+            }
+
+            @keyframes workflowSpin {
+                from {
+                    transform: translateY(-50%) rotate(0deg);
+                }
+                to {
+                    transform: translateY(-50%) rotate(360deg);
+                }
+            }
+
             .workflow-progress {
                 margin: 1.6rem 0 2.7rem;
                 background: var(--autoedit-card);
@@ -251,6 +281,25 @@ def apply_global_styles() -> None:
                 font-weight: 600;
                 color: var(--autoedit-secondary);
                 margin-bottom: 1rem;
+                position: relative;
+            }
+
+            .workflow-progress__detail--active {
+                padding-right: 2.1rem;
+            }
+
+            .workflow-progress__detail--active::after {
+                content: "";
+                position: absolute;
+                top: 50%;
+                right: 0.2rem;
+                width: 1.05rem;
+                height: 1.05rem;
+                border-radius: 50%;
+                border: 2px solid rgba(11, 132, 243, 0.35);
+                border-top-color: var(--autoedit-primary);
+                animation: workflowSpin 0.9s linear infinite;
+                transform-origin: center;
             }
 
             .workflow-progress__steps {
@@ -337,14 +386,19 @@ def apply_global_styles() -> None:
                 background: rgba(11, 132, 243, 0.2);
                 color: var(--autoedit-primary);
                 border: 2px solid rgba(11, 132, 243, 0.65);
+                animation: workflowPulse 1.8s ease-in-out infinite;
             }
 
             .workflow-progress__step--active::after {
-                background: rgba(11, 132, 243, 0.35);
+                background: linear-gradient(90deg, rgba(11, 132, 243, 0.1) 0%, rgba(11, 132, 243, 0.45) 50%, rgba(11, 132, 243, 0.1) 100%);
+                background-size: 200% 100%;
+                animation: workflowShimmer 1.6s linear infinite;
             }
 
             .workflow-progress__step--active + .workflow-progress__step::before {
-                background: rgba(11, 132, 243, 0.35);
+                background: linear-gradient(90deg, rgba(11, 132, 243, 0.1) 0%, rgba(11, 132, 243, 0.45) 50%, rgba(11, 132, 243, 0.1) 100%);
+                background-size: 200% 100%;
+                animation: workflowShimmer 1.6s linear infinite;
             }
 
             .workflow-progress__step--error .workflow-progress__index {
@@ -696,10 +750,14 @@ def render_workflow_progress(
             )
         )
 
+    detail_classes = ["workflow-progress__detail"]
+    if any(status == "active" for status in status_classes):
+        detail_classes.append("workflow-progress__detail--active")
+
     placeholder.markdown(
         (
             "<div class=\"workflow-progress\">"
-            f"<div class=\"workflow-progress__detail\">{html.escape(detail_text)}</div>"
+            f"<div class=\"{' '.join(detail_classes)}\">{html.escape(detail_text)}</div>"
             f"<div class=\"workflow-progress__steps\">{''.join(step_markup)}</div>"
             "</div>"
         ),
