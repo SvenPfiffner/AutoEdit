@@ -613,17 +613,15 @@ def render_past_edits(
         safe_timestamp = html.escape(timestamp_text)
 
         entries.append(
-            """
-            <article class="history-entry">
-                <div class="history-entry__thumb">
-                    <img src="data:{mime};base64,{image}" alt="Past generation {index}" loading="lazy" />
-                </div>
-                <div class="history-entry__content">
-                    <div class="history-entry__meta">Revision {index:02d} · {timestamp}</div>
-                    <div class="history-entry__prompt">{prompt}</div>
-                </div>
-            </article>
-            """.format(
+            '<article class="history-entry">'
+            '<div class="history-entry__thumb">'
+            '<img src="data:{mime};base64,{image}" alt="Past generation {index}" loading="lazy" />'
+            '</div>'
+            '<div class="history-entry__content">'
+            '<div class="history-entry__meta">Revision {index:02d} · {timestamp}</div>'
+            '<div class="history-entry__prompt">{prompt}</div>'
+            '</div>'
+            '</article>'.format(
                 image=encoded_image,
                 prompt=safe_prompt,
                 mime=mime_type,
@@ -634,23 +632,19 @@ def render_past_edits(
 
     if not entries:
         target.markdown(
-            """
-            <div class="history-panel">
-                <div class="history-panel__title">Past Generations<span class="history-panel__count">0</span></div>
-                <div class="history-panel__empty">Past edits will appear here once available.</div>
-            </div>
-            """,
+            '<div class="history-panel">'
+            '<div class="history-panel__title">Past Generations<span class="history-panel__count">0</span></div>'
+            '<div class="history-panel__empty">Past edits will appear here once available.</div>'
+            '</div>',
             unsafe_allow_html=True,
         )
         return
 
     target.markdown(
-        """
-        <div class="history-panel">
-            <div class="history-panel__title">Past Generations<span class="history-panel__count">{count}</span></div>
-            {entries}
-        </div>
-        """.format(count=len(entries), entries="".join(entries)),
+        '<div class="history-panel">'
+        '<div class="history-panel__title">Past Generations<span class="history-panel__count">{count}</span></div>'
+        '{entries}'
+        '</div>'.format(count=len(entries), entries="".join(entries)),
         unsafe_allow_html=True,
     )
 

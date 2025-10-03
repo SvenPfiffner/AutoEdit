@@ -89,6 +89,35 @@ class ImageProcessor:
             The structured output of the workflow, including placeholder
             captions and refined prompts.
         """
+        DEBUG_MODE = True
+        if DEBUG_MODE:
+
+            steps = [
+                WorkflowStepResult(
+                    name="Caption Extraction",
+                    status="complete",
+                    detail=prompt,
+                ),
+                WorkflowStepResult(
+                    name="Prompt Orchestration",
+                    status="complete",
+                    detail=prompt,
+                ),
+                WorkflowStepResult(
+                    name="Image Editing",
+                    status="complete",
+                    detail="QWEN-Image-Edit applied with the refined instructions.",
+                ),
+            ]
+                    
+            return ProcessResult(
+                user_prompt=prompt,
+                caption="Test",
+                refined_prompt="Test",
+                final_image=image_bytes,
+                steps=[],
+                created_at=datetime.now(timezone.utc),
+            )
 
         if not image_bytes:
             return ProcessResult(
