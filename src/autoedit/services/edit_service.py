@@ -18,7 +18,7 @@ def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
 
     pipeline.set_progress_bar_config(disable=None)
     pipeline.to("cuda") #if you have enough VRAM replace this line with `pipeline.to("cuda")` which is 20GB VRAM
-    prompt = "Make the man wear clown makeup and a clown nose. mantain the character face, eyes, skin details, lightning, pose, position and overall composition)"
+    prompt = "mantain the character face, eyes, skin details, lightning, pose, position and overall composition)"
     inputs = {
         "image": image,
         "prompt": prompt,

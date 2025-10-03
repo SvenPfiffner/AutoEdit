@@ -14,8 +14,9 @@ from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
 from services.caption_service import generate_caption
-from services.llm_service import craft_edit_prompt
 from services.edit_service import edit_image
+
+from services.prompts import JOYCAPTION_PROMPT
 
 
 @dataclass
@@ -40,17 +41,10 @@ class ProcessResult:
 
 
 class JoyCaptionModel:
-    """Placeholder for the JoyCaption vision-language model."""
+    """The JoyCaption vision-language model."""
 
     def generate_caption(self, image_bytes: bytes) -> str:
         return generate_caption(image_bytes)
-
-
-class PromptOrchestrator:
-    """Simulates the lightweight LLM responsible for planning edits."""
-
-    def craft_edit_prompt(self, user_prompt: str, caption: str) -> str:
-        return craft_edit_prompt(user_prompt, caption)
         
 
 
@@ -58,7 +52,7 @@ class QwenImageEditor:
     """Stands in for the QWEN-Image-Edit model."""
 
     def apply_edit(self, image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
-        return edit_image(image_bytes, refined_prompt)
+        return image_bytes#edit_image(image_bytes, refined_prompt)
 
 
 ProgressCallback = Callable[[int, str, str], None]
@@ -69,7 +63,6 @@ class ImageProcessor:
 
     def __init__(self) -> None:
         self._caption_model = JoyCaptionModel()
-        self._prompt_orchestrator = PromptOrchestrator()
         self._image_editor = QwenImageEditor()
 
     def process(
@@ -113,17 +106,15 @@ class ImageProcessor:
                 progress_callback(step_index, status, message)
 
         notify(0, "active", "Extracting descriptive caption with JoyCaption...")
-        caption = self._caption_model.generate_caption(image_bytes)
-        caption_summary = caption if len(caption) <= 160 else caption[:157] + '...'
+        refined_prompt = self._caption_model.generate_caption(image_bytes)
+        caption_summary = refined_prompt if len(refined_prompt) <= 160 else refined_prompt[:157] + '...'
         notify(0, "complete", f"Caption ready: {caption_summary}")
 
-        notify(1, "active", "Planning image edits with the orchestration LLM...")
-        refined_prompt = self._prompt_orchestrator.craft_edit_prompt(prompt, caption)
-        prompt_summary = refined_prompt if len(refined_prompt) <= 200 else refined_prompt[:197] + '...'
-        notify(1, "complete", f"Refined instructions prepared: {prompt_summary}")
+        notify(1, "active", "Planning image edits...")
+        notify(1, "complete", f"Refined instructions prepared:")
 
         notify(2, "active", "Applying QWEN-Image-Edit to the uploaded image...")
-        final_image = self._image_editor.apply_edit(image_bytes, refined_prompt)
+        final_image = self._image_editor.apply_edit(image_bytes, JOYCAPTION_PROMPT + refined_prompt)
         notify(2, "complete", "Image updated with placeholder edit result.")
 
         steps = [
@@ -135,7 +126,7 @@ class ImageProcessor:
             WorkflowStepResult(
                 name="Prompt Orchestration",
                 status="complete",
-                detail=prompt_summary,
+                detail="",
             ),
             WorkflowStepResult(
                 name="Image Editing",
@@ -146,7 +137,7 @@ class ImageProcessor:
 
         return ProcessResult(
             user_prompt=prompt,
-            caption=caption,
+            caption=refined_prompt,
             refined_prompt=refined_prompt,
             final_image=final_image,
             steps=steps,
