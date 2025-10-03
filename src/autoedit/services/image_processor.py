@@ -13,10 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
-from services.caption_service import generate_caption
-from services.edit_service import edit_image
-
-from services.prompts import JOYCAPTION_PROMPT
+from autoedit.services.caption_service import generate_caption
+from autoedit.services.edit_service import edit_image
 
 
 @dataclass
@@ -89,6 +87,58 @@ class ImageProcessor:
             The structured output of the workflow, including placeholder
             captions and refined prompts.
         """
+        DEBUG_MODE = False
+        if DEBUG_MODE:
+
+            if not image_bytes:
+                if progress_callback:
+                    progress_callback(0, "error", "No image supplied for debugging pipeline.")
+                return ProcessResult(
+                    user_prompt=prompt,
+                    caption="",
+                    refined_prompt="",
+                    final_image=None,
+                    steps=[],
+                    created_at=datetime.now(timezone.utc),
+                )
+
+            refined = (prompt or "Uploaded visual direction").strip() or "Exploratory concept"
+            steps = [
+                WorkflowStepResult(
+                    name="Caption Extraction",
+                    status="complete",
+                    detail=f"Summarized intent: {refined[:160]}",
+                ),
+                WorkflowStepResult(
+                    name="Prompt Orchestration",
+                    status="complete",
+                    detail="Drafted editing directives combining caption and user notes.",
+                ),
+                WorkflowStepResult(
+                    name="Image Editing",
+                    status="complete",
+                    detail="QWEN-Image-Edit applied with placeholder settings for preview.",
+                ),
+            ]
+
+            if progress_callback:
+                progress_callback(0, "active", "Extracting descriptive caption (debug mode).")
+                progress_callback(0, "complete", "Caption synthesized from provided brief.")
+                progress_callback(1, "active", "Composing refined editing directions.")
+                progress_callback(1, "complete", "Prompt orchestration finished.")
+                progress_callback(2, "active", "Simulating QWEN image edit output.")
+                progress_callback(2, "complete", "Debug image edit complete.")
+
+            final_bytes = image_bytes or None
+
+            return ProcessResult(
+                user_prompt=prompt,
+                caption=f"Placeholder caption derived from: {refined[:140]}",
+                refined_prompt=f"Refined instructions based on: {refined[:140]}",
+                final_image=final_bytes,
+                steps=steps,
+                created_at=datetime.now(timezone.utc),
+            )
 
         if not image_bytes:
             return ProcessResult(
