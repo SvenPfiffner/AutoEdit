@@ -85,11 +85,11 @@ def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     if QwenImageEditPipeline is None or torch is None:
         return image_bytes
 
-    try:
-        pipeline = _load_pipeline()
-        if pipeline is None:
-            return image_bytes
-        return _pipeline_edit(pipeline, image_bytes, refined_prompt)
-    except Exception:  # pragma: no cover - defensive fallback
+
+    pipeline = _load_pipeline()
+    if pipeline is None:
+        print("Ohhhhhhhhh please")
         return image_bytes
+    return _pipeline_edit(pipeline, image_bytes, refined_prompt)
+
 

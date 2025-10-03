@@ -18,19 +18,6 @@ from autoedit.services.prompts import JOYCAPTION_PROMPT
 MODEL_NAME = "fancyfeast/llama-joycaption-beta-one-hf-llava"
 
 
-def _generate_with_model(image_bytes: bytes, prompt: str) -> str:
-    """Run the JoyCaption model when dependencies are available."""
-
-    assert AutoProcessor is not None and LlavaForConditionalGeneration is not None
-
-    processor = AutoProcessor.from_pretrained(MODEL_NAME)
-
-    if torch is not None and torch.cuda.is_available():  # pragma: no cover - env specific
-        dtype = torch.bfloat16
-        device_map = "auto"
-    else:
-        dtype = torch.float32 if torch is not None else None
-        device_map = {"": "cpu"}
 # Global singleton instances to avoid reloading models
 _model = None
 _processor = None
@@ -91,7 +78,7 @@ def _get_model_and_processor():
     
     return _model, _processor
 
-def generate_caption(image_bytes: bytes, prompt: str) -> str:
+def _generate_with_model(image_bytes: bytes, prompt: str) -> str:
 
     # Get cached model + processor
     model, processor = _get_model_and_processor()
