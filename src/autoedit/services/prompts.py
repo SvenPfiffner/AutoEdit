@@ -45,3 +45,7 @@ User: add a tattoo on his arm
 Output: add small black tribal tattoo on right forearm
 
 User: """
+
+QWEN_POSITIVE_PROMPT = ""
+
+QWEN_NEGATIVE_PROMPT = ""

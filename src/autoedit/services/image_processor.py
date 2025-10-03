@@ -43,9 +43,8 @@ class ProcessResult:
 class JoyCaptionModel:
     """The JoyCaption vision-language model."""
 
-    def generate_caption(self, image_bytes: bytes) -> str:
-        return generate_caption(image_bytes)
-        
+    def generate_caption(self, image_bytes: bytes, prompt: str) -> str:
+        return generate_caption(image_bytes, prompt)
 
 
 class QwenImageEditor:
@@ -106,7 +105,7 @@ class ImageProcessor:
                 progress_callback(step_index, status, message)
 
         notify(0, "active", "Extracting descriptive caption with JoyCaption...")
-        refined_prompt = self._caption_model.generate_caption(image_bytes)
+        refined_prompt = self._caption_model.generate_caption(image_bytes, prompt)
         caption_summary = refined_prompt if len(refined_prompt) <= 160 else refined_prompt[:157] + '...'
         notify(0, "complete", f"Caption ready: {caption_summary}")
 
@@ -114,7 +113,7 @@ class ImageProcessor:
         notify(1, "complete", f"Refined instructions prepared:")
 
         notify(2, "active", "Applying QWEN-Image-Edit to the uploaded image...")
-        final_image = self._image_editor.apply_edit(image_bytes, JOYCAPTION_PROMPT + refined_prompt)
+        final_image = self._image_editor.apply_edit(image_bytes, refined_prompt)
         notify(2, "complete", "Image updated with placeholder edit result.")
 
         steps = [

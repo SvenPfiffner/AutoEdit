@@ -2,7 +2,7 @@ from transformers import pipeline
 
 from services.prompts import JOYCAPTION_PROMPT
 
-def generate_caption(image_bytes: bytes) -> str:
+def generate_caption(image_bytes: bytes, prompt: str) -> str:
     """
     Generate a caption for the given image using a pre-trained model.
     """
