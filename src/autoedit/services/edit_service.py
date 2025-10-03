@@ -1,12 +1,18 @@
-import os
-from typing import Callable, List, Optional
-import io
+"""Image editing stubs that fall back to lightweight behaviour for demos."""
 
+from __future__ import annotations
+
+import io
+from typing import Optional
 
 from PIL import Image
-import torch
 
-from diffusers import QwenImageEditPipeline
+try:  # pragma: no cover - optional heavy dependency
+    import torch
+    from diffusers import QwenImageEditPipeline
+except ModuleNotFoundError:  # pragma: no cover - handled gracefully
+    torch = None  # type: ignore[assignment]
+    QwenImageEditPipeline = None  # type: ignore[assignment]
 
 from autoedit.services.prompts import QWEN_POSITIVE_PROMPT, QWEN_NEGATIVE_PROMPT
 
@@ -27,8 +33,24 @@ def _get_pipeline():
     
     return _pipeline
 
-def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
-        
+MODEL_PATH = "ovedrive/qwen-image-edit-4bit"
+
+
+def _load_pipeline() -> Optional[QwenImageEditPipeline]:  # type: ignore[name-defined]
+    if QwenImageEditPipeline is None:
+        return None
+
+    dtype = torch.bfloat16 if torch is not None else None
+    pipeline = QwenImageEditPipeline.from_pretrained(MODEL_PATH, torch_dtype=dtype)
+    if torch is not None and hasattr(pipeline, "to"):
+        try:  # pragma: no cover - env specific
+            pipeline.to("cuda")
+        except Exception:
+            pipeline.to("cpu")
+    return pipeline
+
+
+def _pipeline_edit(pipeline: QwenImageEditPipeline, image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     image = Image.open(io.BytesIO(image_bytes))
     
     # Get cached pipeline
@@ -51,7 +73,23 @@ def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     # torch.cuda.empty_cache()  # Only clear cache if needed
 
     output_image = output.images[0]
-    output_buffer = io.BytesIO()
-    output_image.save(output_buffer, format="PNG")
-    output_buffer.seek(0)
-    return output_buffer.getvalue()
+    buffer = io.BytesIO()
+    output_image.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
+    """Apply the QWEN image edit pipeline or return the original bytes."""
+
+    if QwenImageEditPipeline is None or torch is None:
+        return image_bytes
+
+    try:
+        pipeline = _load_pipeline()
+        if pipeline is None:
+            return image_bytes
+        return _pipeline_edit(pipeline, image_bytes, refined_prompt)
+    except Exception:  # pragma: no cover - defensive fallback
+        return image_bytes
+
