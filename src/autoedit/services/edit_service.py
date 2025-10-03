@@ -8,18 +8,31 @@ import torch
 
 from diffusers import QwenImageEditPipeline
 
-from services.prompts import QWEN_POSITIVE_PROMPT, QWEN_NEGATIVE_PROMPT
+from autoedit.services.prompts import QWEN_POSITIVE_PROMPT, QWEN_NEGATIVE_PROMPT
+
+# Global singleton instance to avoid reloading pipeline
+_pipeline = None
+
+def _get_pipeline():
+    """Load pipeline once, then reuse it."""
+    global _pipeline
+    
+    if _pipeline is None:
+        print("Loading QWEN-Image-Edit pipeline...")
+        model_path = "ovedrive/qwen-image-edit-4bit"
+        _pipeline = QwenImageEditPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
+        _pipeline.set_progress_bar_config(disable=None)
+        _pipeline.to("cuda")  # Keep on GPU for reuse
+        print("QWEN-Image-Edit pipeline loaded successfully!")
+    
+    return _pipeline
 
 def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
         
     image = Image.open(io.BytesIO(image_bytes))
     
-    model_path = "ovedrive/qwen-image-edit-4bit"
-    pipeline = QwenImageEditPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
-    print("pipeline loaded") # not true but whatever. do not move to cuda
-
-    pipeline.set_progress_bar_config(disable=None)
-    pipeline.to("cuda") #if you have enough VRAM replace this line with `pipeline.to("cuda")` which is 20GB VRAM
+    # Get cached pipeline
+    pipeline = _get_pipeline()
     prompt = refined_prompt + ". mantain the character face, eyes, skin details, lightning, pose, position and overall composition)"
     inputs = {
         "image": image,
@@ -33,8 +46,9 @@ def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     with torch.inference_mode():
         output = pipeline(**inputs)
 
-    pipeline.to("cpu")
-    torch.cuda.empty_cache()
+    # Keep pipeline on GPU for reuse - don't move to CPU anymore
+    # pipeline.to("cpu")  # Commented out to keep model loaded
+    # torch.cuda.empty_cache()  # Only clear cache if needed
 
     output_image = output.images[0]
     output_buffer = io.BytesIO()
