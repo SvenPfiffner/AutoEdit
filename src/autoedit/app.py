@@ -64,8 +64,9 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
         return None
 
     steps = [
-        "Captioning with JoyCaption",
-        "Planning edits",
+        "Loading JoyCaption into VRAM",
+        "Extracting Edit Instructions",
+        "Loading QWEN-Image-Edit into VRAM",
         "Applying QWEN-Image-Edit",
     ]
     statuses = ["pending"] * len(steps)

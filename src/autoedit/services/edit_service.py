@@ -9,20 +9,29 @@ from typing import Optional
 
 from PIL import Image
 
+from typing import Optional
+
 import torch
 from diffusers import QwenImageEditPipeline
 
 from autoedit.services.prompts import QWEN_POSITIVE_PROMPT, QWEN_NEGATIVE_PROMPT
 
+
 MODEL_PATH = "dimitribarbot/Qwen-Image-Edit-int8wo"
 
-def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
-    print("Loading QWEN-Image-Edit pipeline...")
+def edit_image(image_bytes: bytes, refined_prompt: str, progress_callback) -> Optional[bytes]:
+
+    if progress_callback:
+        progress_callback(2, "active", "Loading QWEN-Image-Edit model...")
+    
     model_path = "ovedrive/qwen-image-edit-4bit"
     pipeline = QwenImageEditPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
     pipeline.set_progress_bar_config(disable=None)
     pipeline.to("cuda")
-    print("QWEN-Image-Edit pipeline loaded successfully!")
+
+    if progress_callback:
+        progress_callback(2, "complete", "QWEN-Image-Edit model loaded successfully.")
+
 
     image = Image.open(io.BytesIO(image_bytes))
 
@@ -36,6 +45,9 @@ def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
         "num_inference_steps": 20, # even 10 steps should be enough in many cases
     }
 
+    if progress_callback:
+        progress_callback(3, "active", "Applying QWEN-Image-Edit...")
+
     with torch.inference_mode():
         output = pipeline(**inputs)
 
@@ -47,4 +59,8 @@ def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     buffer = io.BytesIO()
     output_image.save(buffer, format="PNG")
     buffer.seek(0)
+
+    if progress_callback:
+        progress_callback(3, "complete", "QWEN-Image-Edit applied successfully.")
+
     return buffer.getvalue()

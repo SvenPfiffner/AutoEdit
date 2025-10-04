@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 from PIL import Image
 
+from typing import Optional
+
 try:  # pragma: no cover - optional heavy dependency path
     import torch
     from transformers import AutoProcessor, LlavaForConditionalGeneration
@@ -15,11 +17,14 @@ except ModuleNotFoundError:  # pragma: no cover - handled gracefully
 
 from autoedit.services.prompts import JOYCAPTION_PROMPT
 
+
 MODEL_NAME = "fancyfeast/llama-joycaption-beta-one-hf-llava"
 
-def generate_caption(image_bytes: bytes, prompt: str) -> str:
+def generate_caption(image_bytes: bytes, prompt: str, progress_callback) -> str:
 
-    print(f"Loading JoyCaption model ({MODEL_NAME}) ")
+    if progress_callback:
+        progress_callback(0, "active", "Loading JoyCaption model...")
+
     processor = AutoProcessor.from_pretrained(MODEL_NAME)
         
     dtype = torch.bfloat16
@@ -29,6 +34,9 @@ def generate_caption(image_bytes: bytes, prompt: str) -> str:
         device_map="cuda:0",
         low_cpu_mem_usage=True,
     ).eval()
+
+    if progress_callback:
+        progress_callback(0, "complete", "JoyCaption model loaded successfully.")
 
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
@@ -42,6 +50,9 @@ def generate_caption(image_bytes: bytes, prompt: str) -> str:
     )
 
     inputs = processor(text=[prompt_str], images=[image], return_tensors="pt").to("cuda:0")
+
+    if progress_callback:
+        progress_callback(1, "active", "Generating caption with JoyCaption...")
 
     with torch.no_grad():
         gen_ids = model.generate(  
@@ -59,7 +70,8 @@ def generate_caption(image_bytes: bytes, prompt: str) -> str:
         gen_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
     ).strip()
 
-
+    if progress_callback:
+        progress_callback(1, "complete", "Caption generation complete.")
 
     return text
 
