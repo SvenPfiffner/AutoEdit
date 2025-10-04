@@ -48,5 +48,5 @@ QWEN_POSITIVE_PROMPT = (
 )
 
 QWEN_NEGATIVE_PROMPT = (
-    "low quality, blurry, noisy, overexposed, underexposed, washed out colors, bad anatomy, distorted proportions, mutated hands, extra fingers, missing fingers, extra limbs, missing limbs, duplicated limbs, deformed face, warped eyes, unnatural skin, plastic texture, artifacts, banding, watermark, text, logo, oversharpened edges"
+    "low quality, blurry, noisy, overexposed, underexposed, washed out colors, bad anatomy, distorted proportions, mutated hands, extra fingers, missing fingers, extra limbs, missing limbs, duplicated limbs, deformed face, warped eyes, unnatural skin, plastic texture, artifacts, banding, watermark, oversharpened edges"
 )
