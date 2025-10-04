@@ -644,7 +644,7 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
     cols = st.columns((7, 5), gap="large")
 
     with cols[0]:
-        st.markdown('<div class="section-subheader">Creative brief</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subheader">Edit Instructions</div>', unsafe_allow_html=True)
         prompt = st.text_area(
             label="Creative brief",
             placeholder="Describe the aesthetic, tone, or changes you'd like to explore...",
@@ -682,39 +682,29 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
                 """
                 <div class="insight-card__item" style="gap:0.25rem; background:rgba(11,132,243,0.05); border-style:dashed;">
                     <strong>Workflow tip</strong>
-                    <span class="helper-text">Expect ~1min per render while captioning and planning complete. The first task after startup may take longer because models are loaded into GPU memory.</span>
+                    <span class="helper-text">PLACEHOLDER</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
     with cols[1]:
-        st.markdown('<div class="section-subheader">Session guidance</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subheader">Processing mode</div>', unsafe_allow_html=True)
+        mode = st.radio(
+            "Choose editing mode",
+            options=["Casual", "Professional (coming soon)"],
+            index=0,
+            help="Casual mode translates your prompt for you (slower, easier). Professional mode expects a detailed prompt (faster, for advanced users).",
+            key="autoedit_editing_mode",
+            label_visibility="collapsed",
+        )
         st.markdown(
             """
             <div class="insight-card">
                 <div class="insight-card__item">
-                    <strong>Align intent &amp; visuals</strong>
-                    <span class="helper-text">Summarize the story, subject, and finishing style so captioning stays precise.</span>
+                    <strong>Tip</strong>
+                    <span class="helper-text">The casual mode uses a second AI model to translate your prompt into a more detailed brief designed for best results. However, this substantially increases processing time as multiple models must be handled. Consider using pro mode for way faster results if you are familiar with image editing prompts.</span>
                 </div>
-                <div class="insight-card__item">
-                    <strong>Call out constraints</strong>
-                    <span class="helper-text">Mention what should remain unchanged—brand colors, layout anchors, or lighting.</span>
-                </div>
-                <div class="insight-card__item">
-                    <strong>Plan multi-step edits</strong>
-                    <span class="helper-text">AutoEdit sequences captioning, prompt refinement, and QWEN image edits for consistent results.</span>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown('<div class="section-subheader">Need inspiration?</div>', unsafe_allow_html=True)
-        st.markdown(
-            """
-            <div class="insight-card__item">
-                <span class="helper-text">Try contrasting palettes like “soft dusk pastels with metallic accents” or specify lens effects such as “35mm depth with gentle film grain.”</span>
             </div>
             """,
             unsafe_allow_html=True,
