@@ -135,7 +135,10 @@ class ImageProcessor:
         notify(1, "complete", f"Refined instructions prepared:")
 
         notify(2, "active", "Applying QWEN-Image-Edit to the uploaded image...")
+
+        print(f"VRAM usage before editing: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         final_image = self._image_editor.apply_edit(image_bytes, refined_prompt)
+        print(f"VRAM usage after editing: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         notify(2, "complete", "Image updated with placeholder edit result.")
 
         steps = [

@@ -9,40 +9,23 @@ from typing import Optional
 
 from PIL import Image
 
-try:  # pragma: no cover - optional heavy dependency
-    import torch
-    from diffusers import QwenImageEditPipeline
-except ModuleNotFoundError:  # pragma: no cover - handled gracefully
-    torch = None  # type: ignore[assignment]
-    QwenImageEditPipeline = None  # type: ignore[assignment]
+import torch
+from diffusers import QwenImageEditPipeline
 
 from autoedit.services.prompts import QWEN_POSITIVE_PROMPT, QWEN_NEGATIVE_PROMPT
 
-# Global singleton instance to avoid reloading pipeline
-_pipeline = None
-
-def _get_pipeline():
-    """Load pipeline once, then reuse it."""
-    global _pipeline
-    
-    if _pipeline is None:
-        print("Loading QWEN-Image-Edit pipeline...")
-        model_path = "ovedrive/qwen-image-edit-4bit"
-        _pipeline = QwenImageEditPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
-        _pipeline.set_progress_bar_config(disable=None)
-        _pipeline.to("cuda")  # Keep on GPU for reuse
-        print("QWEN-Image-Edit pipeline loaded successfully!")
-    
-    return _pipeline
-
-
 MODEL_PATH = "ovedrive/qwen-image-edit-4bit"
 
-def _pipeline_edit(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
+def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
+    print("Loading QWEN-Image-Edit pipeline...")
+    model_path = "ovedrive/qwen-image-edit-4bit"
+    pipeline = QwenImageEditPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
+    pipeline.set_progress_bar_config(disable=None)
+    pipeline.to("cuda")
+    print("QWEN-Image-Edit pipeline loaded successfully!")
+
     image = Image.open(io.BytesIO(image_bytes))
-    
-    # Get cached pipeline
-    pipeline = _get_pipeline()
+
     prompt = refined_prompt + ". mantain the character face, eyes, skin details, lightning, pose, position and overall composition)"
     inputs = {
         "image": image,
@@ -56,9 +39,8 @@ def _pipeline_edit(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     with torch.inference_mode():
         output = pipeline(**inputs)
 
-    # Keep pipeline on GPU for reuse - don't move to CPU anymore
-    # pipeline.to("cpu")  # Commented out to keep model loaded
-    # torch.cuda.empty_cache()  # Only clear cache if needed
+    pipeline.to("cpu")
+    torch.cuda.empty_cache()
 
     output_image = output.images[0]
     
@@ -66,14 +48,5 @@ def _pipeline_edit(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     output_image.save(buffer, format="PNG")
     buffer.seek(0)
     return buffer.getvalue()
-
-
-def edit_image(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
-    """Apply the QWEN image edit pipeline or return the original bytes."""
-
-    if QwenImageEditPipeline is None or torch is None:
-        return image_bytes
-
-    return _pipeline_edit(image_bytes, refined_prompt)
 
 
