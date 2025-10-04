@@ -610,18 +610,12 @@ def render_header() -> None:
     st.markdown(
         """
         <div class="hero">
-            <div class="hero__badge">AutoEdit Studio</div>
-            <h1 class="hero__title">Design refined iterations with creative intelligence</h1>
+            <div class="hero__badge">AutoEdit</div>
+            <h1 class="hero__title">Edit Images with casual prompts</h1>
             <p class="hero__subtitle">
-                AutoEdit pairs your art direction with guided editing steps so every upload
-                becomes a polished concept. Provide a reference visual and creative brief to
-                explore production-ready variations with confidence.
+                AutoEdit allows automatic editing of images with casual prompts. Provide an image and a brief, descriptive prompt to get started.
+                You can be as detailed or broad as you like—AutoEdit will handle the rest.
             </p>
-            <div class="hero__meta">
-                <span class="badge">Guided workflow</span>
-                <span class="badge">Reference aware</span>
-                <span class="badge">Caption &amp; refine</span>
-            </div>
         </div>
         """,
         unsafe_allow_html=True,
