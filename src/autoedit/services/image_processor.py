@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, List, Optional
 
+import torch
+
 from services.caption_service import generate_caption
 from services.edit_service import edit_image
 
@@ -119,7 +121,13 @@ class ImageProcessor:
                 progress_callback(step_index, status, message)
 
         notify(0, "active", "Extracting descriptive caption with JoyCaption...")
+
+        print(f"VRAM usage before captioning: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+
+
         refined_prompt = self._caption_model.generate_caption(image_bytes, prompt)
+
+        print(f"VRAM usage after captioning: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         caption_summary = refined_prompt if len(refined_prompt) <= 160 else refined_prompt[:157] + '...'
         notify(0, "complete", f"Caption ready: {caption_summary}")
 

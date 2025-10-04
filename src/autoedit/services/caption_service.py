@@ -17,71 +17,18 @@ from autoedit.services.prompts import JOYCAPTION_PROMPT
 
 MODEL_NAME = "fancyfeast/llama-joycaption-beta-one-hf-llava"
 
+def generate_caption(image_bytes: bytes, prompt: str) -> str:
 
-# Global singleton instances to avoid reloading models
-_model = None
-_processor = None
-
-def _get_model_and_processor():
-    """Load model and processor once, then reuse them.
-    
-    Uses CPU offloading to keep VRAM usage low (~2-4GB for this model).
-    The model layers are kept in RAM and moved to GPU on-demand during inference.
-    """
-    global _model, _processor
-    
-    if _model is None or _processor is None:
-        print(f"Loading JoyCaption model ({MODEL_NAME}) with CPU offloading...")
-        _processor = AutoProcessor.from_pretrained(MODEL_NAME)
+    print(f"Loading JoyCaption model ({MODEL_NAME}) ")
+    processor = AutoProcessor.from_pretrained(MODEL_NAME)
         
-        # Strategy for CPU offloading to minimize VRAM:
-        # 1. Load model entirely on CPU first
-        # 2. Only vision components stay on GPU permanently
-        # 3. Language model runs on CPU (slower but saves ~15GB VRAM)
-        
-        if torch.cuda.is_available():
-            dtype = torch.bfloat16
-            # Load on CPU first, then selectively move components
-            print("  - Loading model on CPU first...")
-            _model = LlavaForConditionalGeneration.from_pretrained(
-                MODEL_NAME,
-                torch_dtype=dtype,
-                device_map="cpu",  # Start on CPU
-                low_cpu_mem_usage=True,
-            ).eval()
-            
-            # Move only vision tower to GPU (saves most VRAM)
-            print("  - Moving vision tower to GPU...")
-            if hasattr(_model, 'vision_tower'):
-                _model.vision_tower = _model.vision_tower.to("cuda:0")
-            elif hasattr(_model.model, 'vision_tower'):
-                _model.model.vision_tower = _model.model.vision_tower.to("cuda:0")
-            
-            # Move multi-modal projector to GPU (small, ~100MB)
-            if hasattr(_model, 'multi_modal_projector'):
-                _model.multi_modal_projector = _model.multi_modal_projector.to("cuda:0")
-            elif hasattr(_model.model, 'multi_modal_projector'):
-                _model.model.multi_modal_projector = _model.model.multi_modal_projector.to("cuda:0")
-            
-            print("  ✓ Vision components on GPU (~2-3GB VRAM)")
-            print("  ✓ Language model on CPU (saves ~15GB VRAM)")
-            print("  → Total VRAM for captioning: ~2-4GB")
-        else:
-            dtype = torch.float32
-            _model = LlavaForConditionalGeneration.from_pretrained(
-                MODEL_NAME,
-                torch_dtype=dtype,
-                device_map="cpu",
-                low_cpu_mem_usage=True,
-            ).eval()
-            print("  - Model loaded on CPU (no GPU available)")
-    
-    return _model, _processor
-
-def _generate_with_model(image_bytes: bytes, prompt: str) -> str:
-
-    # Get cached model + processor
-    model, processor = _get_model_and_processor()
+    dtype = torch.bfloat16
+    model = LlavaForConditionalGeneration.from_pretrained(
+        MODEL_NAME,
+        torch_dtype=dtype,
+        device_map="cuda:0",
+        low_cpu_mem_usage=True,
+    ).eval()
 
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
@@ -94,23 +41,10 @@ def _generate_with_model(image_bytes: bytes, prompt: str) -> str:
         convo, tokenize=False, add_generation_prompt=True
     )
 
-    inputs = processor(text=[prompt_str], images=[image], return_tensors="pt")
-    
-    # With CPU offloading, inputs need careful device placement:
-    # - Vision tower on GPU processes pixel_values
-    # - Language model on CPU processes text tokens
-    # PyTorch will handle cross-device communication automatically
-    if torch.cuda.is_available():
-        # pixel_values go to GPU for vision tower
-        inputs["pixel_values"] = inputs["pixel_values"].to("cuda:0", dtype=torch.bfloat16)
-        # Keep text inputs on CPU where the language model lives
-        # This avoids unnecessary CPU<->GPU transfers
-    else:
-        # CPU-only mode
-        inputs["pixel_values"] = inputs["pixel_values"].to(torch.float32)
+    inputs = processor(text=[prompt_str], images=[image], return_tensors="pt").to("cuda:0")
 
-    with torch.no_grad():  # type: ignore[union-attr]
-        gen_ids = model.generate(  # type: ignore[assignment]
+    with torch.no_grad():
+        gen_ids = model.generate(  
             **inputs,
             max_new_tokens=256,
             do_sample=True,
@@ -125,26 +59,7 @@ def _generate_with_model(image_bytes: bytes, prompt: str) -> str:
         gen_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
     ).strip()
 
+
+
     return text
-
-
-def _fallback_caption(prompt: str) -> str:
-    base_prompt = (prompt or "Uploaded visual").strip()
-    return (
-        f"Placeholder caption: {base_prompt[:120]}"
-        if base_prompt
-        else "Placeholder caption"
-    )
-
-
-def generate_caption(image_bytes: bytes, prompt: str) -> str:
-    """Return a caption, falling back to a lightweight heuristic if needed."""
-
-    if AutoProcessor is None or LlavaForConditionalGeneration is None:
-        return _fallback_caption(prompt)
-
-    try:
-        return _generate_with_model(image_bytes, prompt)
-    except Exception:  # pragma: no cover - defensive fallback for dev envs
-        return _fallback_caption(prompt)
 
