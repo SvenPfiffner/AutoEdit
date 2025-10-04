@@ -567,6 +567,107 @@ def apply_global_styles() -> None:
                 color: rgba(12, 26, 42, 0.6) !important;
             }
 
+            /* Radio button styling */
+            div[data-testid="stRadio"] {
+                background: transparent;
+            }
+
+            div[data-testid="stRadio"] > label {
+                display: none !important;
+            }
+
+            div[data-testid="stRadio"] > div {
+                display: flex;
+                flex-direction: column;
+                gap: 0.85rem;
+                padding: 0;
+            }
+
+            div[data-testid="stRadio"] > div > label {
+                display: flex !important;
+                align-items: center;
+                background: rgba(11, 132, 243, 0.06);
+                border: 2px solid rgba(11, 132, 243, 0.12);
+                border-radius: 16px;
+                padding: 1rem 1.25rem;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                position: relative;
+            }
+
+            div[data-testid="stRadio"] > div > label:hover {
+                background: rgba(11, 132, 243, 0.1);
+                border-color: rgba(11, 132, 243, 0.25);
+                transform: translateX(2px);
+            }
+
+            div[data-testid="stRadio"] > div > label > div:first-child {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 20px;
+                height: 20px;
+                min-width: 20px;
+                border: 2px solid rgba(11, 132, 243, 0.35);
+                border-radius: 50%;
+                margin-right: 0.85rem;
+                background: white;
+                position: relative;
+            }
+
+            div[data-testid="stRadio"] > div > label > div:first-child::after {
+                content: "";
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: var(--autoedit-primary);
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) scale(0);
+                transition: transform 0.2s ease;
+            }
+
+            div[data-testid="stRadio"] > div > label[data-checked="true"] {
+                background: rgba(11, 132, 243, 0.12);
+                border-color: var(--autoedit-primary);
+                box-shadow: 0 8px 16px rgba(11, 132, 243, 0.15);
+            }
+
+            div[data-testid="stRadio"] > div > label[data-checked="true"] > div:first-child {
+                border-color: var(--autoedit-primary);
+                border-width: 2px;
+            }
+
+            div[data-testid="stRadio"] > div > label[data-checked="true"] > div:first-child::after {
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            div[data-testid="stRadio"] > div > label > div:last-child {
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--autoedit-secondary);
+                line-height: 1.5;
+            }
+
+            div[data-testid="stRadio"] > div > label[data-checked="true"] > div:last-child {
+                color: var(--autoedit-primary);
+            }
+
+            /* Disabled state for "coming soon" option */
+            div[data-testid="stRadio"] > div > label:has(div:last-child:contains("coming soon")) {
+                opacity: 0.6;
+                cursor: not-allowed;
+                background: rgba(12, 26, 42, 0.04);
+                border-color: rgba(12, 26, 42, 0.08);
+            }
+
+            div[data-testid="stRadio"] > div > label:has(div:last-child:contains("coming soon")):hover {
+                background: rgba(12, 26, 42, 0.04);
+                border-color: rgba(12, 26, 42, 0.08);
+                transform: none;
+            }
+
             @media (max-width: 1024px) {
                 .workflow-progress {
                     padding: 1.35rem 1.25rem;
