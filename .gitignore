@@ -5,9 +5,4 @@ __pycache__/
 .env
 .streamlit/secrets.toml
 
-# Output directory - ignore generated content but keep README
-/output/*.json
-/output/images/
-/output/summary.txt
-# Keep the README
-!/output/README.md
+/output
