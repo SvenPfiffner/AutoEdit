@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable, List, Optional
 
 from services.caption_service import generate_caption
@@ -60,9 +61,22 @@ ProgressCallback = Callable[[int, str, str], None]
 class ImageProcessor:
     """Encapsulates the multi-stage image processing workflow."""
 
-    def __init__(self) -> None:
+    def __init__(self, enable_storage: bool = True, output_dir: Optional[Path] = None) -> None:
+        """Initialize the image processor.
+
+        Parameters
+        ----------
+        enable_storage:
+            Whether to automatically save results to persistent storage.
+            Defaults to True.
+        output_dir:
+            Optional custom output directory for storage.
+            If None, uses the default 'output' directory.
+        """
         self._caption_model = JoyCaptionModel()
         self._image_editor = QwenImageEditor()
+        self._enable_storage = enable_storage
+        self._output_dir = output_dir
 
     def process(
         self,
@@ -134,7 +148,7 @@ class ImageProcessor:
             ),
         ]
 
-        return ProcessResult(
+        result = ProcessResult(
             user_prompt=prompt,
             caption=refined_prompt,
             refined_prompt=refined_prompt,
@@ -142,6 +156,30 @@ class ImageProcessor:
             steps=steps,
             created_at=datetime.now(timezone.utc),
         )
+
+        # Save result to persistent storage if enabled
+        if self._enable_storage:
+            self._save_result(result)
+
+        return result
+
+    def _save_result(self, result: ProcessResult) -> None:
+        """Save a processing result to persistent storage.
+
+        Parameters
+        ----------
+        result:
+            The processing result to save.
+        """
+        try:
+            # Import here to avoid circular dependency
+            from services.storage_service import StorageService
+
+            storage = StorageService(output_dir=self._output_dir)
+            storage.save_result(result)
+        except Exception as e:
+            # Log error but don't fail the pipeline
+            print(f"Warning: Failed to save result to storage: {e}")
 
 
 __all__ = [
