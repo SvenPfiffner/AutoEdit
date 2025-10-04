@@ -38,34 +38,6 @@ def _get_pipeline():
 
 MODEL_PATH = "ovedrive/qwen-image-edit-4bit"
 
-
-def _get_project_root() -> Path:
-    """Get the project root directory."""
-    # Navigate from src/autoedit/services to project root
-    return Path(__file__).parent.parent.parent.parent
-
-
-def _save_generated_image(image: Image.Image) -> None:
-    """Save the generated image to tmp folder with timestamp."""
-    try:
-        project_root = _get_project_root()
-        tmp_dir = project_root / "tmp"
-        
-        # Create tmp directory if it doesn't exist
-        tmp_dir.mkdir(exist_ok=True)
-        
-        # Generate timestamp-based filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # milliseconds precision
-        filename = f"generated_{timestamp}.png"
-        filepath = tmp_dir / filename
-        
-        # Save the image
-        image.save(filepath, format="PNG")
-        print(f"Generated image saved to: {filepath}")
-    except Exception as e:
-        print(f"Warning: Could not save generated image to tmp folder: {e}")
-
-
 def _pipeline_edit(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     image = Image.open(io.BytesIO(image_bytes))
     
@@ -89,9 +61,6 @@ def _pipeline_edit(image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
     # torch.cuda.empty_cache()  # Only clear cache if needed
 
     output_image = output.images[0]
-    
-    # Save the generated image to tmp folder with timestamp
-    _save_generated_image(output_image)
     
     buffer = io.BytesIO()
     output_image.save(buffer, format="PNG")
