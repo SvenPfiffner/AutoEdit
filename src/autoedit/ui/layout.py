@@ -688,7 +688,7 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
                 """
                 <div class="insight-card__item" style="gap:0.25rem; background:rgba(11,132,243,0.05); border-style:dashed;">
                     <strong>Workflow tip</strong>
-                    <span class="helper-text">Expect ~30s per render while captioning and planning complete.</span>
+                    <span class="helper-text">Expect ~1min per render while captioning and planning complete. The first task after startup may take longer because models are loaded into GPU memory.</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
