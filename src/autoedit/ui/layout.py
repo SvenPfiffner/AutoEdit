@@ -665,7 +665,7 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
 
         if uploaded_file is not None:
             image_bytes = uploaded_file.getvalue()
-            st.image(image_bytes, caption="Uploaded reference", use_column_width=True)
+            st.image(image_bytes, caption="Uploaded reference", use_container_width=True)
 
         action_cols = st.columns((2.3, 1.7), gap="medium")
         with action_cols[0]:
@@ -800,7 +800,7 @@ def render_output_panel(result: ProcessResult) -> None:
     main_col, side_col = st.columns((7, 5), gap="large")
     with main_col:
         st.markdown('<div class="section-subheader">Final render</div>', unsafe_allow_html=True)
-        st.image(result.final_image, caption="Edited visual", use_column_width=True)
+        st.image(result.final_image, caption="Edited visual", use_container_width=True)
 
     user_brief = html.escape(result.user_prompt or "No brief provided.")
     caption_text = html.escape(result.caption or "No caption generated.")
