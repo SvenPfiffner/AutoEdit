@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, List, Optional
 
+import torch
+
 from services.caption_service import generate_caption
 from services.edit_service import edit_image
 
@@ -44,15 +46,15 @@ class ProcessResult:
 class JoyCaptionModel:
     """The JoyCaption vision-language model."""
 
-    def generate_caption(self, image_bytes: bytes, prompt: str) -> str:
-        return generate_caption(image_bytes, prompt)
+    def generate_caption(self, image_bytes: bytes, prompt: str, progress_callback: Optional[ProgressCallback] = None) -> str:
+        return generate_caption(image_bytes, prompt, progress_callback)
 
 
 class QwenImageEditor:
     """Stands in for the QWEN-Image-Edit model."""
 
-    def apply_edit(self, image_bytes: bytes, refined_prompt: str) -> Optional[bytes]:
-        return edit_image(image_bytes, refined_prompt)
+    def apply_edit(self, image_bytes: bytes, refined_prompt: str, progress_callback: Optional[ProgressCallback] = None) -> Optional[bytes]:
+        return edit_image(image_bytes, refined_prompt, progress_callback)
 
 
 ProgressCallback = Callable[[int, str, str], None]
@@ -114,21 +116,11 @@ class ImageProcessor:
                 created_at=datetime.now(timezone.utc),
             )
 
-        def notify(step_index: int, status: str, message: str) -> None:
-            if progress_callback:
-                progress_callback(step_index, status, message)
+        refined_prompt = self._caption_model.generate_caption(image_bytes, prompt, progress_callback)
 
-        notify(0, "active", "Extracting descriptive caption with JoyCaption...")
-        refined_prompt = self._caption_model.generate_caption(image_bytes, prompt)
         caption_summary = refined_prompt if len(refined_prompt) <= 160 else refined_prompt[:157] + '...'
-        notify(0, "complete", f"Caption ready: {caption_summary}")
 
-        notify(1, "active", "Planning image edits...")
-        notify(1, "complete", f"Refined instructions prepared:")
-
-        notify(2, "active", "Applying QWEN-Image-Edit to the uploaded image...")
-        final_image = self._image_editor.apply_edit(image_bytes, refined_prompt)
-        notify(2, "complete", "Image updated with placeholder edit result.")
+        final_image = self._image_editor.apply_edit(image_bytes, refined_prompt, progress_callback)
 
         steps = [
             WorkflowStepResult(
@@ -145,6 +137,11 @@ class ImageProcessor:
                 name="Image Editing",
                 status="complete",
                 detail="QWEN-Image-Edit applied with the refined instructions.",
+            ),
+            WorkflowStepResult(
+                name="Finalization",
+                status="complete",
+                detail="Results saved and ready for display.",
             ),
         ]
 
