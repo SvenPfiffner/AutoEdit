@@ -125,7 +125,7 @@ class ImageProcessor:
         print(f"VRAM usage before captioning: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
 
 
-        refined_prompt = self._caption_model.generate_caption(image_bytes, prompt)
+        refined_prompt = prompt#self._caption_model.generate_caption(image_bytes, prompt)
 
         print(f"VRAM usage after captioning: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         caption_summary = refined_prompt if len(refined_prompt) <= 160 else refined_prompt[:157] + '...'
