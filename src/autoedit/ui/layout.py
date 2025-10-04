@@ -945,8 +945,8 @@ def render_footer() -> None:
     st.markdown(
         """
         <footer class="footer">
-            <span>© AutoEdit Studio — Crafted for creative professionals.</span>
-            <a href="mailto:hello@autoedit.app">Contact</a>
+            <span>© AutoEdit - Made with ❤️ by Sven Pfiffner</span>
+            <a href="https://github.com/SvenPfiffner/AutoEdit">Official GitHub</a>
         </footer>
         """,
         unsafe_allow_html=True,
