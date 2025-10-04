@@ -767,27 +767,8 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
         if uploaded_file is not None:
             image_bytes = uploaded_file.getvalue()
             st.image(image_bytes, caption="Uploaded reference", use_container_width=True)
+            
 
-        action_cols = st.columns((2.3, 1.7), gap="medium")
-        with action_cols[0]:
-            submit_pressed = st.button(
-                "Render Concept",
-                use_container_width=True,
-                type="primary",
-                help="Generate a refined visual concept using your prompt and reference.",
-                key=_PROCESS_BUTTON_KEY,
-            )
-
-        with action_cols[1]:
-            st.markdown(
-                """
-                <div class="insight-card__item" style="gap:0.25rem; background:rgba(11,132,243,0.05); border-style:dashed;">
-                    <strong>Workflow tip</strong>
-                    <span class="helper-text">PLACEHOLDER</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
 
     with cols[1]:
         st.markdown('<div class="section-subheader">Processing mode</div>', unsafe_allow_html=True)
@@ -810,6 +791,14 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
             """,
             unsafe_allow_html=True,
         )
+
+    submit_pressed = st.button(
+        "Render Concept",
+        use_container_width=True,
+        type="primary",
+        help="Generate a refined visual concept using your prompt and reference.",
+        key=_PROCESS_BUTTON_KEY,
+    )
 
     st.session_state[_PROCESS_BUTTON_STATE_KEY] = submit_pressed
 
