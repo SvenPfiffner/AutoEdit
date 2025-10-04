@@ -155,22 +155,22 @@ class ImageProcessor:
                 progress_callback(step_index, status, message)
 
         notify(0, "active", "Extracting descriptive caption with JoyCaption...")
-        refined_prompt = self._caption_model.generate_caption(image_bytes, prompt)
-        caption_summary = refined_prompt if len(refined_prompt) <= 160 else refined_prompt[:157] + '...'
-        notify(0, "complete", f"Caption ready: {caption_summary}")
+        ##refined_prompt = self._caption_model.generate_caption(image_bytes, prompt)
+        ##caption_summary = refined_prompt if len(refined_prompt) <= 160 else refined_prompt[:157] + '...'
+        ##notify(0, "complete", f"Caption ready: {caption_summary}")
 
         notify(1, "active", "Planning image edits...")
         notify(1, "complete", f"Refined instructions prepared:")
 
         notify(2, "active", "Applying QWEN-Image-Edit to the uploaded image...")
-        final_image = self._image_editor.apply_edit(image_bytes, refined_prompt)
+        final_image = self._image_editor.apply_edit(image_bytes, prompt)
         notify(2, "complete", "Image updated with placeholder edit result.")
 
         steps = [
             WorkflowStepResult(
                 name="Caption Extraction",
                 status="complete",
-                detail=caption_summary,
+                detail="",
             ),
             WorkflowStepResult(
                 name="Prompt Orchestration",
@@ -186,8 +186,8 @@ class ImageProcessor:
 
         return ProcessResult(
             user_prompt=prompt,
-            caption=refined_prompt,
-            refined_prompt=refined_prompt,
+            caption="",
+            refined_prompt="",
             final_image=final_image,
             steps=steps,
             created_at=datetime.now(timezone.utc),

@@ -1,19 +1,9 @@
-# AutoEdit Studio
 
-AutoEdit Studio is a Streamlit-based prototype that explores a premium
-image-editing workflow. The current milestone focuses on establishing a
-polished front-end experience with a modular architecture that will welcome
-future backend enhancements.
-
-## Project layout
-
-# AutoEdit Studio ✨
+# AutoEdit ✨
 
 **Natural-language image editing through cascaded vision-language translation**
 
-A proof-of-concept exploring how vision-language models can bridge the gap between casual user prompts and precise image editing instructions. Built by Sven Pfiffner as a research project.
-
----
+A proof-of-concept exploring how vision-language models can bridge the gap between casual user prompts and precise image editing instructions.
 
 ## The Problem
 
@@ -35,9 +25,6 @@ User Input → [JoyCaption Translation] → [QWEN Image Editing] → Output
 
 **Stage 2 - QWEN-Image-Edit:** Takes those specific instructions and applies them. Because it receives unambiguous directives, it can focus on targeted modifications while maintaining coherence.
 
----
-
----
 
 ## Examples
 
@@ -51,9 +38,8 @@ Comparison between our cascaded approach and vanilla QWEN-Image-Edit (4-bit):
 | The person occupying this table is really thirsty | <img src="resources/source_image/4.jpeg" width="300"> | <img src="resources/ours/4.jpg" width="300"> | <img src="resources/vanilla_qwen/4.jpg" width="300"> |
 | Oh no! This woman seems to be cold, do something about it | <img src="resources/source_image/5.jpg" width="300"> | <img src="resources/ours/5.jpg" width="300"> | <img src="resources/vanilla_qwen/5.jpg" width="300"> |
 
-*Notice how our approach better preserves the original subject, composition, and realism while still applying the requested edits.*
+*Notice how our approach better preserves the original subject, composition, and realism while still applying the requested edits. This becomes especially apparent the more general the prompt becomes, where the cascading helps to determine the users intend*
 
----
 
 ## Current Status ⚠️
 
@@ -64,8 +50,6 @@ This is an **early proof of concept**. The core pipeline works and produces good
 - Requires GPU with ~20GB VRAM
 
 A stable release with proper packaging and documentation is coming soon. For now, this is a research prototype.
-
----
 
 ## Running It
 
