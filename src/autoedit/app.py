@@ -30,12 +30,19 @@ def run() -> None:
 
     layout.apply_global_styles()
     layout.render_header()
+    latest_result: Optional[ProcessResult] = st.session_state.get("latest_result")
     with st.container():
         user_prompt, uploaded_image = layout.render_input_panel()
-        if layout.user_requested_processing():
+        process_requested = layout.user_requested_processing()
+
+        if process_requested:
             processed_result = _process_image(user_prompt, uploaded_image)
             if processed_result:
-                layout.render_output_panel(processed_result)
+                st.session_state["latest_result"] = processed_result
+                latest_result = processed_result
+
+        if latest_result:
+            layout.render_output_panel(latest_result)
 
     sidebar_history: List[ProcessResult] = (
         st.session_state.get("edit_history", [])[1:]

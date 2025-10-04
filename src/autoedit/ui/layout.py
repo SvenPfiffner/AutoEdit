@@ -892,16 +892,6 @@ def render_output_panel(result: ProcessResult) -> None:
         st.markdown('<div class="section-subheader">Final render</div>', unsafe_allow_html=True)
         st.image(result.final_image, caption="Edited visual", use_container_width=True)
 
-        action_cols = st.columns((1.2, 1.2, 2.6))
-
-        with action_cols[0]:
-            if st.button("Refine", key="autoedit_refine_button", use_container_width=True):
-                st.session_state["autoedit_refine_image"] = result.final_image
-                st.session_state["autoedit_reference_visual"] = None
-                next_prompt = result.refined_prompt or result.user_prompt
-                if next_prompt:
-                    st.session_state["autoedit_creative_brief"] = next_prompt
-
         download_image_format = imghdr.what(None, h=result.final_image) or "png"
         if download_image_format == "jpg":
             download_image_format = "jpeg"
@@ -912,14 +902,33 @@ def render_output_panel(result: ProcessResult) -> None:
                 f"autoedit-render-{result.created_at.strftime('%Y%m%d-%H%M%S')}"
             )
 
+        action_cols = st.columns((6, 2, 2), gap="small")
+
         with action_cols[1]:
+            refine_clicked = st.button(
+                "Refine",
+                key="autoedit_refine_button",
+                use_container_width=True,
+                type="secondary",
+                help="Reuse this render as the new reference image and keep iterating.",
+            )
+
+        with action_cols[2]:
             st.download_button(
                 "Save",
                 data=result.final_image,
                 file_name=f"{download_name}.{download_extension}",
                 mime=f"image/{download_image_format}",
                 use_container_width=True,
+                key="autoedit_save_button",
             )
+
+        if refine_clicked and result.final_image:
+            st.session_state["autoedit_refine_image"] = result.final_image
+            st.session_state["autoedit_reference_visual"] = None
+            next_prompt = result.refined_prompt or result.user_prompt
+            if next_prompt:
+                st.session_state["autoedit_creative_brief"] = next_prompt
 
     user_brief = html.escape(result.user_prompt or "No brief provided.")
     caption_text = html.escape(result.caption or "No caption generated.")
