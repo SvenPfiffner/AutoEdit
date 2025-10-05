@@ -741,6 +741,7 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
 
     submit_pressed = False
     image_bytes: Optional[bytes] = None
+    refined_image_bytes: Optional[bytes] = st.session_state.get("autoedit_refine_image")
 
     cols = st.columns((7, 5), gap="large")
 
@@ -766,8 +767,17 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
 
         if uploaded_file is not None:
             image_bytes = uploaded_file.getvalue()
+            st.session_state.pop("autoedit_refine_image", None)
             st.image(image_bytes, caption="Uploaded reference", use_container_width=True)
-            
+        elif refined_image_bytes:
+            image_bytes = refined_image_bytes
+            st.image(
+                image_bytes,
+                caption="Using previous render as reference",
+                use_container_width=True,
+            )
+            st.caption("Refine mode active. Upload a new file to start from a different image.")
+
 
 
     with cols[1]:
@@ -881,6 +891,44 @@ def render_output_panel(result: ProcessResult) -> None:
     with main_col:
         st.markdown('<div class="section-subheader">Final render</div>', unsafe_allow_html=True)
         st.image(result.final_image, caption="Edited visual", use_container_width=True)
+
+        download_image_format = imghdr.what(None, h=result.final_image) or "png"
+        if download_image_format == "jpg":
+            download_image_format = "jpeg"
+        download_extension = "jpg" if download_image_format == "jpeg" else download_image_format
+        download_name = "autoedit-render"
+        if result.created_at:
+            download_name = (
+                f"autoedit-render-{result.created_at.strftime('%Y%m%d-%H%M%S')}"
+            )
+
+        action_cols = st.columns((6, 2, 2), gap="small")
+
+        with action_cols[1]:
+            refine_clicked = st.button(
+                "Refine",
+                key="autoedit_refine_button",
+                use_container_width=True,
+                type="secondary",
+                help="Reuse this render as the new reference image and keep iterating.",
+            )
+
+        with action_cols[2]:
+            st.download_button(
+                "Save",
+                data=result.final_image,
+                file_name=f"{download_name}.{download_extension}",
+                mime=f"image/{download_image_format}",
+                use_container_width=True,
+                key="autoedit_save_button",
+            )
+
+        if refine_clicked and result.final_image:
+            st.session_state["autoedit_pending_refine_image"] = result.final_image
+            st.session_state["autoedit_refine_requested"] = True
+            next_prompt = result.refined_prompt or result.user_prompt
+            if next_prompt:
+                st.session_state["autoedit_pending_refine_prompt"] = next_prompt
 
     user_brief = html.escape(result.user_prompt or "No brief provided.")
     caption_text = html.escape(result.caption or "No caption generated.")

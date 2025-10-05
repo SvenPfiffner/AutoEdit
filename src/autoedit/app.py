@@ -30,12 +30,22 @@ def run() -> None:
 
     layout.apply_global_styles()
     layout.render_header()
+
+    _prepare_refine_state()
+
+    latest_result: Optional[ProcessResult] = st.session_state.get("latest_result")
     with st.container():
         user_prompt, uploaded_image = layout.render_input_panel()
-        if layout.user_requested_processing():
+        process_requested = layout.user_requested_processing()
+
+        if process_requested:
             processed_result = _process_image(user_prompt, uploaded_image)
             if processed_result:
-                layout.render_output_panel(processed_result)
+                st.session_state["latest_result"] = processed_result
+                latest_result = processed_result
+
+        if latest_result:
+            layout.render_output_panel(latest_result)
 
     sidebar_history: List[ProcessResult] = (
         st.session_state.get("edit_history", [])[1:]
@@ -131,6 +141,23 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
     )
 
     return result
+
+
+def _prepare_refine_state() -> None:
+    """Apply any pending refine request before widgets are instantiated."""
+
+    if not st.session_state.pop("autoedit_refine_requested", False):
+        return
+
+    refine_image: Optional[bytes] = st.session_state.pop("autoedit_pending_refine_image", None)
+    if refine_image:
+        st.session_state["autoedit_refine_image"] = refine_image
+
+    st.session_state.pop("autoedit_reference_visual", None)
+
+    next_prompt: Optional[str] = st.session_state.pop("autoedit_pending_refine_prompt", None)
+    if next_prompt:
+        st.session_state["autoedit_creative_brief"] = next_prompt
 
 
 if __name__ == "__main__":
