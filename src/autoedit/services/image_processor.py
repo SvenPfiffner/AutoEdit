@@ -14,12 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, List, Optional
 
-import torch
-
-from services.caption_service import generate_caption
-from services.edit_service import edit_image
-
-from services.prompts import JOYCAPTION_PROMPT
+import importlib
 
 
 @dataclass
@@ -47,14 +42,18 @@ class JoyCaptionModel:
     """The JoyCaption vision-language model."""
 
     def generate_caption(self, image_bytes: bytes, prompt: str, progress_callback: Optional[ProgressCallback] = None) -> str:
-        return generate_caption(image_bytes, prompt, progress_callback)
+        caption_module = importlib.import_module("services.caption_service")
+        caption_function = getattr(caption_module, "generate_caption")
+        return caption_function(image_bytes, prompt, progress_callback)
 
 
 class QwenImageEditor:
     """Stands in for the QWEN-Image-Edit model."""
 
     def apply_edit(self, image_bytes: bytes, refined_prompt: str, progress_callback: Optional[ProgressCallback] = None) -> Optional[bytes]:
-        return edit_image(image_bytes, refined_prompt, progress_callback)
+        edit_module = importlib.import_module("services.edit_service")
+        edit_function = getattr(edit_module, "edit_image")
+        return edit_function(image_bytes, refined_prompt, progress_callback)
 
 
 ProgressCallback = Callable[[int, str, str], None]
@@ -85,6 +84,7 @@ class ImageProcessor:
         prompt: str,
         image_bytes: bytes,
         progress_callback: Optional[ProgressCallback] = None,
+        mode: str = "Casual",
     ) -> ProcessResult:
         """Process the provided image according to the multi-step workflow.
 
@@ -116,38 +116,90 @@ class ImageProcessor:
                 created_at=datetime.now(timezone.utc),
             )
 
-        refined_prompt = self._caption_model.generate_caption(image_bytes, prompt, progress_callback)
+        normalized_mode = (mode or "Casual").strip().lower()
+        is_professional = normalized_mode.startswith("pro")
 
-        caption_summary = refined_prompt if len(refined_prompt) <= 160 else refined_prompt[:157] + '...'
+        caption_text = ""
+        caption_summary = "Professional mode: used the provided prompt without JoyCaption translation."
 
-        final_image = self._image_editor.apply_edit(image_bytes, refined_prompt, progress_callback)
+        def _caption_progress(step_index: int, status: str, message: str) -> None:
+            if progress_callback:
+                progress_callback(step_index, status, message)
+
+        def _qwen_progress(step_index: int, status: str, message: str) -> None:
+            if not progress_callback:
+                return
+            if is_professional:
+                mapped_index = step_index if step_index < 2 else step_index - 2
+            else:
+                mapped_index = step_index
+            progress_callback(mapped_index, status, message)
+
+        refined_prompt = prompt
+        if not is_professional:
+            caption_callback = _caption_progress if progress_callback else None
+            caption_text = self._caption_model.generate_caption(
+                image_bytes,
+                prompt,
+                caption_callback,
+            )
+            refined_prompt = caption_text or prompt
+            caption_summary = (
+                caption_text
+                if len(caption_text) <= 160
+                else caption_text[:157] + "..."
+            )
+
+        qwen_callback = _qwen_progress if progress_callback else None
+        final_image = self._image_editor.apply_edit(
+            image_bytes,
+            refined_prompt,
+            qwen_callback,
+        )
 
         steps = [
             WorkflowStepResult(
-                name="Caption Extraction",
-                status="complete",
-                detail=caption_summary,
-            ),
-            WorkflowStepResult(
                 name="Prompt Orchestration",
                 status="complete",
-                detail="",
-            ),
+                detail="Professional mode used the provided prompt directly without JoyCaption translation."
+                if is_professional
+                else caption_summary,
+            )
+        ]
+
+        if not is_professional:
+            steps.insert(
+                0,
+                WorkflowStepResult(
+                    name="Caption Extraction",
+                    status="complete",
+                    detail=caption_summary,
+                ),
+            )
+            steps[1] = WorkflowStepResult(
+                name="Prompt Orchestration",
+                status="complete",
+                detail="JoyCaption translated the casual brief into an editing prompt.",
+            )
+
+        steps.append(
             WorkflowStepResult(
                 name="Image Editing",
                 status="complete",
                 detail="QWEN-Image-Edit applied with the refined instructions.",
-            ),
+            )
+        )
+        steps.append(
             WorkflowStepResult(
                 name="Finalization",
                 status="complete",
                 detail="Results saved and ready for display.",
-            ),
-        ]
+            )
+        )
 
         result = ProcessResult(
             user_prompt=prompt,
-            caption=refined_prompt,
+            caption=caption_text,
             refined_prompt=refined_prompt,
             final_image=final_image,
             steps=steps,
