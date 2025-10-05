@@ -742,6 +742,9 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
     submit_pressed = False
     image_bytes: Optional[bytes] = None
     refined_image_bytes: Optional[bytes] = st.session_state.get("autoedit_refine_image")
+    skip_uploaded_reference = st.session_state.pop(
+        "autoedit_skip_uploaded_reference_once", False
+    )
 
     cols = st.columns((7, 5), gap="large")
 
@@ -764,6 +767,9 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
             key="autoedit_reference_visual",
             label_visibility="collapsed",
         )
+
+        if skip_uploaded_reference:
+            uploaded_file = None
 
         if uploaded_file is not None:
             image_bytes = uploaded_file.getvalue()
@@ -925,7 +931,7 @@ def render_output_panel(result: ProcessResult) -> None:
 
         if refine_clicked and result.final_image:
             st.session_state["autoedit_refine_image"] = result.final_image
-            st.session_state["autoedit_reference_visual"] = None
+            st.session_state["autoedit_skip_uploaded_reference_once"] = True
             next_prompt = result.refined_prompt or result.user_prompt
             if next_prompt:
                 st.session_state["autoedit_creative_brief"] = next_prompt
