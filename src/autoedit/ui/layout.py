@@ -745,6 +745,10 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
     skip_uploaded_reference = st.session_state.pop(
         "autoedit_skip_uploaded_reference_once", False
     )
+    if skip_uploaded_reference:
+        # Clear the uploader's widget value before it is instantiated so Streamlit
+        # does not raise an exception about mutating widget state post-creation.
+        st.session_state.pop("autoedit_reference_visual", None)
 
     cols = st.columns((7, 5), gap="large")
 
