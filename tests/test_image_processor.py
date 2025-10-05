@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from types import MethodType
+from types import MethodType, SimpleNamespace
 
+from autoedit.services import image_processor as image_processor_module
 from autoedit.services.image_processor import ImageProcessor, WorkflowStepResult
 
 
@@ -98,3 +99,58 @@ def test_image_processor_handles_missing_image():
 
     assert result.final_image is None
     assert result.steps == []
+
+
+def test_qwen_model_cache_respects_mode_switching():
+    processor = ImageProcessor(enable_storage=False)
+
+    import_counts = {"edit": 0, "caption": 0}
+    original_import = image_processor_module.importlib.import_module
+
+    def fake_import(name: str):
+        if name == "services.edit_service":
+            import_counts["edit"] += 1
+            return SimpleNamespace(
+                edit_image=lambda image_bytes, refined_prompt, cb: image_bytes
+            )
+        if name == "services.caption_service":
+            import_counts["caption"] += 1
+            return SimpleNamespace(
+                generate_caption=lambda image_bytes, prompt, cb: "Caption guidance"
+            )
+        return original_import(name)
+
+    image_processor_module.importlib.import_module = fake_import
+    try:
+        image_bytes = b"img"
+
+        processor.process(
+            prompt="Professional first run",
+            image_bytes=image_bytes,
+            mode="Professional",
+        )
+        assert import_counts["edit"] == 1
+
+        processor.process(
+            prompt="Professional reuse",
+            image_bytes=image_bytes,
+            mode="Professional",
+        )
+        assert import_counts["edit"] == 1
+
+        processor.process(
+            prompt="Casual switch",
+            image_bytes=image_bytes,
+            mode="Casual",
+        )
+        assert import_counts["edit"] == 2
+        assert import_counts["caption"] == 1
+
+        processor.process(
+            prompt="Professional after casual",
+            image_bytes=image_bytes,
+            mode="Professional",
+        )
+        assert import_counts["edit"] == 3
+    finally:
+        image_processor_module.importlib.import_module = original_import
