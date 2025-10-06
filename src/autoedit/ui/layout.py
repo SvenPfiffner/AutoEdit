@@ -19,6 +19,14 @@ from streamlit.delta_generator import DeltaGenerator
 
 
 from autoedit.services.image_processor import ProcessResult, WorkflowStepResult
+from autoedit.services.system_stats import (
+    CudaStatus,
+    MemoryUsage,
+    format_bytes_to_gb,
+    get_cuda_status,
+    get_ram_usage,
+    get_vram_usage,
+)
 
 
 _PROCESS_BUTTON_KEY = "process_image_button"
@@ -197,6 +205,81 @@ def apply_global_styles() -> None:
                 text-transform: uppercase;
                 background: rgba(11, 132, 243, 0.12);
                 color: var(--autoedit-primary);
+            }
+
+            .system-indicators {
+                display: flex;
+                flex-direction: column;
+                gap: 0.85rem;
+                margin-bottom: 1.5rem;
+                background: var(--autoedit-card);
+                border-radius: 20px;
+                padding: 1.15rem 1.2rem;
+                border: 1px solid rgba(11, 132, 243, 0.1);
+                box-shadow: var(--autoedit-shadow);
+            }
+
+            .system-indicator {
+                display: flex;
+                align-items: center;
+                gap: 0.9rem;
+            }
+
+            .system-indicator__icon {
+                width: 46px;
+                height: 46px;
+                border-radius: 16px;
+                display: grid;
+                place-items: center;
+                font-size: 1.35rem;
+                font-weight: 600;
+                background: rgba(11, 132, 243, 0.12);
+                color: var(--autoedit-primary);
+            }
+
+            .system-indicator__content {
+                display: flex;
+                flex-direction: column;
+                gap: 0.15rem;
+            }
+
+            .system-indicator__label {
+                font-size: 0.78rem;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                font-weight: 700;
+                color: rgba(12, 26, 42, 0.58);
+            }
+
+            .system-indicator__value {
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: var(--autoedit-secondary);
+            }
+
+            .system-indicator__meta {
+                font-size: 0.85rem;
+                color: rgba(12, 26, 42, 0.6);
+            }
+
+            .system-indicator--ok .system-indicator__icon {
+                background: rgba(34, 197, 94, 0.16);
+                color: #15803d;
+            }
+
+            .system-indicator--warn .system-indicator__icon {
+                background: rgba(234, 179, 8, 0.16);
+                color: #b45309;
+            }
+
+            .system-indicator--critical .system-indicator__icon {
+                background: rgba(239, 68, 68, 0.14);
+                color: #b91c1c;
+            }
+
+            .system-indicator--unknown .system-indicator__icon {
+                background: rgba(148, 163, 184, 0.18);
+                color: rgba(71, 85, 105, 0.9);
             }
 
             .result-card {
@@ -1061,9 +1144,100 @@ def render_past_edits(
     )
 
 
+def _class_for_usage(usage: MemoryUsage) -> str:
+    percent = usage.percent
+    if percent is None:
+        return "system-indicator--unknown"
+    if percent >= 90:
+        return "system-indicator--critical"
+    if percent >= 75:
+        return "system-indicator--warn"
+    return "system-indicator--ok"
+
+
+def render_system_status_panel() -> None:
+    """Render real-time system telemetry indicators in the sidebar."""
+
+    cuda_status: CudaStatus = get_cuda_status()
+    vram_usage: MemoryUsage = get_vram_usage()
+    ram_usage: MemoryUsage = get_ram_usage()
+
+    cuda_class = "system-indicator--ok" if cuda_status.available else "system-indicator--critical"
+    cuda_value = "Available" if cuda_status.available else "Unavailable"
+    cuda_detail = html.escape(cuda_status.detail) if cuda_status.detail else (
+        "Ready for acceleration" if cuda_status.available else "CUDA not accessible"
+    )
+
+    vram_class = _class_for_usage(vram_usage)
+    if vram_usage.total_bytes is None:
+        vram_value = "— / —"
+        vram_meta = "GPU metrics unavailable"
+    else:
+        vram_value = (
+            f"{format_bytes_to_gb(vram_usage.used_bytes)}"
+            f" / {format_bytes_to_gb(vram_usage.total_bytes)}"
+        )
+        usage_percent = vram_usage.percent or 0
+        vram_meta = f"{usage_percent:.0f}% utilised"
+
+    ram_class = _class_for_usage(ram_usage)
+    if ram_usage.total_bytes is None:
+        ram_value = "— / —"
+        ram_meta = "Memory metrics unavailable"
+    else:
+        ram_value = (
+            f"{format_bytes_to_gb(ram_usage.used_bytes)}"
+            f" / {format_bytes_to_gb(ram_usage.total_bytes)}"
+        )
+        ram_percent = ram_usage.percent or 0
+        ram_meta = f"{ram_percent:.0f}% utilised"
+
+    indicators_html = """
+        <div class="system-indicators">
+            <div class="system-indicator {cuda_class}">
+                <div class="system-indicator__icon">⚡</div>
+                <div class="system-indicator__content">
+                    <span class="system-indicator__label">CUDA</span>
+                    <span class="system-indicator__value">{cuda_value}</span>
+                    <span class="system-indicator__meta">{cuda_meta}</span>
+                </div>
+            </div>
+            <div class="system-indicator {vram_class}">
+                <div class="system-indicator__icon">🎛️</div>
+                <div class="system-indicator__content">
+                    <span class="system-indicator__label">VRAM usage</span>
+                    <span class="system-indicator__value">{vram_value}</span>
+                    <span class="system-indicator__meta">{vram_meta}</span>
+                </div>
+            </div>
+            <div class="system-indicator {ram_class}">
+                <div class="system-indicator__icon">💾</div>
+                <div class="system-indicator__content">
+                    <span class="system-indicator__label">RAM usage</span>
+                    <span class="system-indicator__value">{ram_value}</span>
+                    <span class="system-indicator__meta">{ram_meta}</span>
+                </div>
+            </div>
+        </div>
+    """.format(
+        cuda_class=cuda_class,
+        cuda_value=cuda_value,
+        cuda_meta=cuda_detail,
+        vram_class=vram_class,
+        vram_value=html.escape(vram_value),
+        vram_meta=html.escape(vram_meta),
+        ram_class=ram_class,
+        ram_value=html.escape(ram_value),
+        ram_meta=html.escape(ram_meta),
+    )
+
+    st.sidebar.markdown(indicators_html, unsafe_allow_html=True)
+
+
 def render_history_sidebar(history: Sequence[ProcessResult]) -> None:
     """Surface the past generations list within a collapsible sidebar panel."""
 
+    render_system_status_panel()
     expander = st.sidebar.expander("Past Generations", expanded=False)
     render_past_edits(history, container=expander, show_header=False)
 
