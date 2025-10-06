@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 import importlib
-import sys
 
 
 @dataclass
@@ -51,29 +50,9 @@ class JoyCaptionModel:
 class QwenImageEditor:
     """Stands in for the QWEN-Image-Edit model."""
 
-    def __init__(self) -> None:
-        self._edit_function: Optional[Callable[[bytes, str, Optional[ProgressCallback]], Optional[bytes]]] = None
-
-    def _ensure_model_loaded(self) -> Callable[[bytes, str, Optional[ProgressCallback]], Optional[bytes]]:
-        if self._edit_function is None:
-            edit_module = importlib.import_module("services.edit_service")
-            self._edit_function = getattr(edit_module, "edit_image")
-        return self._edit_function
-
-    def release_model(self) -> None:
-        """Remove the cached edit model from memory."""
-
-        self._edit_function = None
-        if "services.edit_service" in sys.modules:
-            del sys.modules["services.edit_service"]
-
-    def apply_edit(
-        self,
-        image_bytes: bytes,
-        refined_prompt: str,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> Optional[bytes]:
-        edit_function = self._ensure_model_loaded()
+    def apply_edit(self, image_bytes: bytes, refined_prompt: str, progress_callback: Optional[ProgressCallback] = None) -> Optional[bytes]:
+        edit_module = importlib.import_module("services.edit_service")
+        edit_function = getattr(edit_module, "edit_image")
         return edit_function(image_bytes, refined_prompt, progress_callback)
 
 
@@ -170,7 +149,6 @@ class ImageProcessor:
                 if len(caption_text) <= 160
                 else caption_text[:157] + "..."
             )
-            self._image_editor.release_model()
 
         qwen_callback = _qwen_progress if progress_callback else None
         final_image = self._image_editor.apply_edit(
@@ -178,9 +156,6 @@ class ImageProcessor:
             refined_prompt,
             qwen_callback,
         )
-
-        if not is_professional:
-            self._image_editor.release_model()
 
         steps = [
             WorkflowStepResult(
