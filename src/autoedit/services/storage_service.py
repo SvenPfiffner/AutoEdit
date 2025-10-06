@@ -11,6 +11,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from PIL import Image
+
+
+_FORMAT_EXTENSION_MAP = {fmt.upper(): ext.lstrip(".") for ext, fmt in Image.EXTENSION.items()}
+
 from autoedit.services.image_processor import ProcessResult
 
 
@@ -58,7 +63,8 @@ class StorageService:
         # Save the final image if available
         image_filename = None
         if result.final_image:
-            image_filename = f"{result_id}.jpg"
+            image_extension = self._extension_from_format(result.final_image_format)
+            image_filename = f"{result_id}.{image_extension}"
             image_path = self.images_dir / image_filename
             with open(image_path, "wb") as f:
                 f.write(result.final_image)
@@ -71,6 +77,7 @@ class StorageService:
             "caption": result.caption,
             "refined_prompt": result.refined_prompt,
             "image_filename": image_filename,
+            "image_format": result.final_image_format,
             "steps": [
                 {
                     "name": step.name,
@@ -91,6 +98,16 @@ class StorageService:
         self._save_results(results)
 
         return result_entry
+
+    @staticmethod
+    def _extension_from_format(image_format: Optional[str]) -> str:
+        """Map a Pillow image format string to an appropriate file extension."""
+
+        if not image_format:
+            return "img"
+
+        format_key = image_format.upper()
+        return _FORMAT_EXTENSION_MAP.get(format_key, image_format.lower())
 
     def _load_results(self) -> list:
         """Load existing results from the results file.
