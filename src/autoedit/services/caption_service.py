@@ -73,5 +73,9 @@ def generate_caption(image_bytes: bytes, prompt: str, progress_callback) -> str:
     if progress_callback:
         progress_callback(1, "complete", "Caption generation complete.")
 
+    del model
+    del processor
+    torch.cuda.empty_cache()
+
     return text
 
