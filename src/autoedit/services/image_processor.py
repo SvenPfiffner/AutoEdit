@@ -143,6 +143,9 @@ class ImageProcessor:
 
         refined_prompt = prompt
         if not is_professional:
+            # Make sure QWEN is not in memory if we are switching from a professional run
+            from services.edit_service import cleanup_pipeline
+            cleanup_pipeline()
             caption_callback = _caption_progress if progress_callback else None
             caption_text = self._caption_model.generate_caption(
                 image_bytes,

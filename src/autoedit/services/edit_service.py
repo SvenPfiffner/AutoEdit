@@ -21,6 +21,13 @@ MODEL_PATH = "dimitribarbot/Qwen-Image-Edit-int8wo"
 
 pipeline = None
 
+def cleanup_pipeline():
+    global pipeline
+    if pipeline is not None:
+        pipeline.to("cpu")
+        pipeline = None
+        torch.cuda.empty_cache()
+
 def edit_image(image_bytes: bytes, refined_prompt: str, is_professional: bool, progress_callback) -> Optional[bytes]:
 
     if progress_callback:
@@ -56,9 +63,7 @@ def edit_image(image_bytes: bytes, refined_prompt: str, is_professional: bool, p
         output = pipeline(**inputs)
 
     if not is_professional:
-        pipeline.to("cpu")
-        pipeline = None
-        torch.cuda.empty_cache()
+        cleanup_pipeline()
 
     output_image = output.images[0]
     
