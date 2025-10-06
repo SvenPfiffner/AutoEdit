@@ -51,6 +51,10 @@ This is an **early proof of concept**. The core pipeline works and produces good
 
 A stable release with proper packaging and documentation is coming soon. For now, this is a research prototype.
 
+## Ethical Use & Disclaimer ⚖️
+
+This tool uses uncensored AI models capable of generating or modifying any content. Users are solely responsible for ensuring their use complies with applicable laws and ethical standards. The developer assumes no liability for misuse, harmful content generation, or any damages resulting from use of this software. Please use responsibly and respect intellectual property rights, privacy, and human dignity.
+
 ## Running It
 
 If you want to try it anyway:
