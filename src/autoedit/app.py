@@ -73,12 +73,24 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
         st.info("Please upload an image to begin processing.")
         return None
 
-    steps = [
-        "Loading JoyCaption into VRAM",
-        "Extracting Edit Instructions",
-        "Loading QWEN-Image-Edit into VRAM",
-        "Applying QWEN-Image-Edit",
-    ]
+    mode = st.session_state.get("autoedit_editing_mode", "Casual")
+    is_professional = isinstance(mode, str) and mode.lower().startswith("pro")
+
+    if is_professional:
+        steps = [
+            "Loading QWEN-Image-Edit into VRAM",
+            "Applying QWEN-Image-Edit",
+        ]
+        initial_detail = "Preparing QWEN-Image-Edit for professional mode..."
+    else:
+        steps = [
+            "Loading JoyCaption into VRAM",
+            "Extracting Edit Instructions",
+            "Loading QWEN-Image-Edit into VRAM",
+            "Applying QWEN-Image-Edit",
+        ]
+        initial_detail = "Initializing editing workflow..."
+
     statuses = ["pending"] * len(steps)
     progress_placeholder = st.empty()
     current_step = {"index": 0}
@@ -87,7 +99,7 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
         placeholder=progress_placeholder,
         steps=steps,
         statuses=statuses,
-        detail_text="Initializing editing workflow...",
+        detail_text=initial_detail,
     )
 
     def update_progress(step_index: int, status: str, message: str) -> None:
@@ -118,6 +130,7 @@ def _process_image(prompt: str, image_data: Optional[bytes]) -> Optional[Process
             prompt=prompt,
             image_bytes=image_data,
             progress_callback=update_progress,
+            mode=mode,
         )
     except Exception as exc:  # pragma: no cover - defensive UX handling
         update_progress(current_step['index'], "error", "Processing failed. Please try again.")

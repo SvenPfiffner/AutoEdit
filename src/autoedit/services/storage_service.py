@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from services.image_processor import ProcessResult
+from autoedit.services.image_processor import ProcessResult
 
 
 class StorageService:

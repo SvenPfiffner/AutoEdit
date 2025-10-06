@@ -784,18 +784,24 @@ def render_input_panel() -> Tuple[str, Optional[bytes]]:
         st.markdown('<div class="section-subheader">Processing mode</div>', unsafe_allow_html=True)
         mode = st.radio(
             "Choose editing mode",
-            options=["Casual", "Professional (coming soon)"],
+            options=["Casual", "Professional"],
             index=0,
-            help="Casual mode translates your prompt for you (slower, easier). Professional mode expects a detailed prompt (faster, for advanced users).",
+            help="Casual mode translates your prompt for you (slower, easier). Professional mode skips translation and expects a detailed prompt (faster, for advanced users).",
             key="autoedit_editing_mode",
             label_visibility="collapsed",
         )
+
+        tip_message = (
+            "The casual mode uses a second AI model to translate your prompt into a more detailed brief designed for best results. However, this substantially increases processing time as multiple models must be handled. Consider using professional mode for much faster results if you are familiar with image editing prompts."
+            if mode == "Casual"
+            else "Professional mode sends your prompt directly to QWEN-Image-Edit. Provide a precise, production-ready brief to take advantage of the faster turnaround."
+        )
         st.markdown(
-            """
+            f"""
             <div class="insight-card">
                 <div class="insight-card__item">
                     <strong>Tip</strong>
-                    <span class="helper-text">The casual mode uses a second AI model to translate your prompt into a more detailed brief designed for best results. However, this substantially increases processing time as multiple models must be handled. Consider using pro mode for way faster results if you are familiar with image editing prompts.</span>
+                    <span class="helper-text">{html.escape(tip_message)}</span>
                 </div>
             </div>
             """,
