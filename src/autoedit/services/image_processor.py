@@ -16,6 +16,9 @@ from typing import Callable, List, Optional
 
 import importlib
 
+from services.caption_service import generate_caption
+from services.edit_service import edit_image
+
 
 @dataclass
 class WorkflowStepResult:
@@ -42,18 +45,15 @@ class JoyCaptionModel:
     """The JoyCaption vision-language model."""
 
     def generate_caption(self, image_bytes: bytes, prompt: str, progress_callback: Optional[ProgressCallback] = None) -> str:
-        caption_module = importlib.import_module("services.caption_service")
-        caption_function = getattr(caption_module, "generate_caption")
-        return caption_function(image_bytes, prompt, progress_callback)
+        return generate_caption(image_bytes, prompt, progress_callback)
+
 
 
 class QwenImageEditor:
     """Stands in for the QWEN-Image-Edit model."""
 
-    def apply_edit(self, image_bytes: bytes, refined_prompt: str, progress_callback: Optional[ProgressCallback] = None) -> Optional[bytes]:
-        edit_module = importlib.import_module("services.edit_service")
-        edit_function = getattr(edit_module, "edit_image")
-        return edit_function(image_bytes, refined_prompt, progress_callback)
+    def apply_edit(self, image_bytes: bytes, refined_prompt: str, is_professional: bool, progress_callback: Optional[ProgressCallback] = None) -> Optional[bytes]:
+        return edit_image(image_bytes, refined_prompt, is_professional, progress_callback)
 
 
 ProgressCallback = Callable[[int, str, str], None]
@@ -98,6 +98,12 @@ class ImageProcessor:
             Optional callable used to report progress updates. The callback
             receives the step index, the new status (``"active"``,
             ``"complete"``, or ``"error"``), and a human-readable message.
+        mode:
+            The processing mode, either ``"Casual"`` or ``"Professional"``.
+            In ``"Casual"`` mode, the system generates a caption from the
+            image and refines the prompt before editing. In
+            ``"Professional"`` mode, the system uses the provided prompt
+            directly without modification.
 
         Returns
         -------
@@ -154,6 +160,7 @@ class ImageProcessor:
         final_image = self._image_editor.apply_edit(
             image_bytes,
             refined_prompt,
+            is_professional,
             qwen_callback,
         )
 

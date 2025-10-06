@@ -19,15 +19,19 @@ from autoedit.services.prompts import QWEN_POSITIVE_PROMPT, QWEN_NEGATIVE_PROMPT
 
 MODEL_PATH = "dimitribarbot/Qwen-Image-Edit-int8wo"
 
-def edit_image(image_bytes: bytes, refined_prompt: str, progress_callback) -> Optional[bytes]:
+pipeline = None
+
+def edit_image(image_bytes: bytes, refined_prompt: str, is_professional: bool, progress_callback) -> Optional[bytes]:
 
     if progress_callback:
         progress_callback(2, "active", "Loading QWEN-Image-Edit model...")
+
+    global pipeline
     
-    model_path = "ovedrive/qwen-image-edit-4bit"
-    pipeline = QwenImageEditPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
-    pipeline.set_progress_bar_config(disable=None)
-    pipeline.to("cuda")
+    if pipeline is None:
+        pipeline = QwenImageEditPipeline.from_pretrained(MODEL_PATH, torch_dtype=torch.bfloat16)
+        pipeline.set_progress_bar_config(disable=None)
+        pipeline.to("cuda")
 
     if progress_callback:
         progress_callback(2, "complete", "QWEN-Image-Edit model loaded successfully.")
@@ -51,8 +55,10 @@ def edit_image(image_bytes: bytes, refined_prompt: str, progress_callback) -> Op
     with torch.inference_mode():
         output = pipeline(**inputs)
 
-    pipeline.to("cpu")
-    torch.cuda.empty_cache()
+    if not is_professional:
+        pipeline.to("cpu")
+        pipeline = None
+        torch.cuda.empty_cache()
 
     output_image = output.images[0]
     
