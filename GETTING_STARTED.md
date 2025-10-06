@@ -2,22 +2,17 @@
 
 Welcome to **AutoEdit**—a tool that lets you edit images using natural language. No complicated sliders, no endless menus—just describe what you want, upload an image, and watch the magic happen.
 
-This guide will walk you through everything you need to know, whether you're a seasoned developer or someone who just wants to make their photos look cooler.
-
----
 
 ## What Does AutoEdit Do?
 
-AutoEdit takes the pain out of image editing by letting you use **casual, everyday language** to describe changes. Want to make a photo look vintage? Just say "make it vintage." Want to add glasses to someone? Type "give them glasses." 
+AutoEdit takes the pain out of image editing by letting you use **casual, everyday language** to describe changes. Want to make a photo look vintage? Just say "make it vintage." Want to turn your friend into a monster? Type "Can you make this guy look creepy?" 
 
 Here's the clever part: AutoEdit uses a **two-stage AI pipeline** to understand what you mean and then actually execute those edits:
 
-1. **JoyCaption** (Stage 1) - Looks at your image and your casual prompt, then translates it into specific, technical editing instructions
+1. **JoyCaption** (Stage 1) - Looks at your image and your casual prompt, then translates it into specific, technical editing instructions that are fine tuned for QWEN and take everything visible in your image into consideration.
 2. **QWEN-Image-Edit** (Stage 2) - Takes those precise instructions and applies them to your image
 
-This approach prevents the AI from going rogue and completely reimagining your photo. It edits **what's there**, not what it thinks should be there.
-
----
+This approach prevents the AI from going rogue and completely reimagining your photo. It edits **what's there**, not what it thinks should be there. Even though image editing AI's are getting really good at understanding vague, non specific user requests, our research has shown that cascading such a preprocessing step increases character and composition coherence immensely for vague prompts. Especially for smaller models that can run on consumer hardware.
 
 ## Before You Begin
 
@@ -25,14 +20,13 @@ This approach prevents the AI from going rogue and completely reimagining your p
 
 AutoEdit is GPU-hungry. Here's what you'll need:
 
-- **GPU**: NVIDIA GPU with at least **20GB VRAM** (e.g., RTX 3090, RTX 4090, A5000, or better)
+- **GPU**: NVIDIA GPU with at least **20-24GB VRAM** (e.g., RTX 3090, RTX 4090, A5000, or better)
 - **Storage**: About **20GB free space** for the AI models (they download automatically on first run)
 - **Python**: Version **3.9 or higher**
 - **CUDA**: Compatible CUDA installation for PyTorch
 
-**Don't have a powerful GPU?** Unfortunately, AutoEdit won't run on CPU or small GPUs. This is cutting-edge AI—it needs the horsepower.
+**Don't have a powerful GPU?** Unfortunately, AutoEdit won't run on CPU or small GPUs. Consider using a rented GPU system. We might provide a docker container for easy remote installation in the future, should there be demand.
 
----
 
 ## Installation
 
@@ -65,13 +59,12 @@ streamlit run src/autoedit/app.py
 
 Your terminal will show a local URL (usually `http://localhost:8501`). Open that in your browser, and you're in!
 
-**First launch will be slow** because AutoEdit needs to download the AI models (~20GB). Grab a coffee—it's worth the wait.
+**First launch will be slow** because AutoEdit needs to download the AI models (~20GB). You can always check on the progress by looking at your terminal. Grab a coffee—it's worth the wait.
 
----
 
 ## Using AutoEdit: The Basics
 
-Once the app loads, you'll see a clean interface with a few key areas:
+Once the app loads, you'll see an interface with a few key areas:
 
 ### 1. **Upload Your Image**
 
@@ -81,8 +74,8 @@ Click the **Reference visual** upload box and choose a PNG, JPG, or JPEG image. 
 
 In the **Edit Instructions** text box, describe what you want to change. Be as casual or detailed as you like:
 
-- **Casual**: "make it vintage"
-- **More specific**: "add a warm sepia tone and some film grain"
+- **Casual**: "Make this portrait look better"
+- **More specific**: "add a warm sepia tone, remove wrinkles, add subtle makeup to the eyes"
 - **Creative**: "turn this kitten into a nerdy supervillain"
 
 ### 3. **Choose Your Mode**
@@ -92,13 +85,13 @@ AutoEdit offers two processing modes:
 #### **Casual Mode** (Default)
 - **Best for**: Beginners, creative exploration, vague prompts
 - **How it works**: Uses JoyCaption to translate your casual prompt into technical instructions
-- **Speed**: Slower (uses two AI models)
+- **Speed**: Slower (uses two AI models that need to be loaded/unloaded on each run to fit on a consumer GPU)
 - **Example prompt**: "make her look like a fantasy elf"
 
 #### **Professional Mode**
 - **Best for**: Advanced users, faster results, precise control
 - **How it works**: Skips JoyCaption and sends your prompt directly to QWEN-Image-Edit
-- **Speed**: Much faster (uses one AI model)
+- **Speed**: Much faster (uses one AI model and requires loading only on first run)
 - **Example prompt**: "shift eye color to bright emerald green, add subtle pointed ears, add delicate silver circlet on head"
 
 **Pro tip**: Start with Casual mode to see how AutoEdit thinks. Once you understand the pattern, switch to Professional mode for speed.
@@ -117,7 +110,6 @@ Once processing completes, you'll see:
   - **Refine**: Use this result as the starting point for another edit
   - **Save**: Download your masterpiece
 
----
 
 ## Understanding the Workflow
 
@@ -135,7 +127,6 @@ Let's peek under the hood. When you click "Render Concept," here's what happens:
 1. **Load QWEN-Image-Edit** - Skips straight to the editing model
 2. **Apply QWEN-Image-Edit** - Uses your prompt exactly as written
 
----
 
 ## Tips for Great Results
 
@@ -160,7 +151,6 @@ Let's peek under the hood. When you click "Render Concept," here's what happens:
 - **Experiment**: Try different phrasings to see what works best
 - **Use the Refine button**: Build on previous edits iteratively
 
----
 
 ## Example Workflows
 
@@ -171,7 +161,6 @@ Let's peek under the hood. When you click "Render Concept," here's what happens:
 **What JoyCaption generates**: "apply warm sepia color grade, reduce saturation slightly, add subtle film grain, soften highlights gently"
 **Result**: A photo that looks like it was taken in the 1970s
 
----
 
 ### Example 2: Adding Accessories
 
@@ -180,7 +169,6 @@ Let's peek under the hood. When you click "Render Concept," here's what happens:
 **What JoyCaption generates**: "add luxury wristwatch, refine jacket fabric to fine wool texture, brighten shirt collar and cuffs slightly"
 **Result**: Same person, but with subtle indicators of wealth
 
----
 
 ### Example 3: Creative Transformation
 
@@ -189,7 +177,6 @@ Let's peek under the hood. When you click "Render Concept," here's what happens:
 **What JoyCaption generates**: "add tiny round glasses, add small black cape, add subtle mischievous expression"
 **Result**: An adorable villainous kitten
 
----
 
 ## The Refine Workflow
 
@@ -208,7 +195,6 @@ One of AutoEdit's coolest features is **iterative refinement**. Here's how it wo
 
 Each iteration builds on the previous one, letting you craft exactly what you envision.
 
----
 
 ## Understanding the Results Panel
 
@@ -220,7 +206,6 @@ After each edit, you'll see a **Workflow Summary** that breaks down what happene
 
 This transparency helps you learn how to write better prompts over time.
 
----
 
 ## Troubleshooting
 
@@ -244,7 +229,6 @@ This transparency helps you learn how to write better prompts over time.
 - **Cause**: The prompt might have been ambiguous, or you explicitly asked for face changes
 - **Solution**: AutoEdit tries hard to preserve faces. If this happens, be more explicit: "keep the person's face and features unchanged, only add a hat"
 
----
 
 ## Advanced: Professional Mode Mastery
 
@@ -264,28 +248,6 @@ Ready to level up? Professional mode gives you fine-grained control. Here's the 
 3. Order matters: List edits in the order you'd apply them manually
 4. When in doubt, be explicit about what to preserve
 
----
-
-## What AutoEdit Can and Can't Do
-
-### ✅ AutoEdit is Great For:
-
-- **Style transfers**: vintage looks, cinematic grading, sci-fi aesthetics
-- **Adding accessories**: glasses, hats, jewelry, clothing items
-- **Lighting adjustments**: brightness, warmth, highlights, shadows
-- **Background changes**: blur, remove elements, replace entirely
-- **Color grading**: saturation, tones, color shifts
-- **Subtle enhancements**: sharpness, texture, professional polish
-
-### ❌ AutoEdit Struggles With:
-
-- **Photorealistic additions of complex objects**: Adding a realistic "friend next to her" is hit-or-miss
-- **Precise spatial editing**: "Move the cup 2 inches to the left" is too specific
-- **Text generation**: Adding legible text to images doesn't work well
-- **Extreme transformations**: Turning a cat into a car is beyond its scope
-- **Highly specific artistic styles**: "Paint it exactly like Monet" is too abstract
-
----
 
 ## History and Storage
 
@@ -294,9 +256,8 @@ AutoEdit keeps track of your recent edits in the **History Sidebar** (if visible
 - Compare results quickly
 - Keep track of your experimentation
 
-**Note**: History resets when you close the browser. If you want to keep an image, use the **Save** button.
+**Note**: History resets when you close the browser. If you want to keep an image, use the **Save** button. A persistent log including previously generated images is also kept in the "outputs" folder of your installation permanently. We will soon integrate this into the history, so it should also be persistent soon.
 
----
 
 ## Under the Hood (For the Curious)
 
@@ -309,7 +270,6 @@ AutoEdit uses some seriously cool technology:
 
 The entire codebase is structured to be modular and extensible, so developers can swap in different models or add new features easily.
 
----
 
 ## Contributing & Support
 
@@ -322,33 +282,18 @@ Fork the repo and submit a pull request. Contributions are welcome!
 ### Need Help?
 Check the [README.md](README.md) for additional context, or explore the code—it's well-documented and structured for readability.
 
----
 
 ## Final Thoughts
 
-AutoEdit is a **proof of concept**—it's rough around the edges, but it demonstrates a powerful idea: **AI-powered image editing should be as easy as having a conversation**.
+AutoEdit is a **proof of concept**—. It is designed to be an open source alternative with the ease of use professional tools like NanoBanana deliver, but uncensored, research friendly and locally run. If you are a true professional, you might be advised to use something more stable and extensible; like comfyUI. If you want a straightforward installation and go straight to editing without much hassle, you are at the right place though. 
 
 Start with simple prompts, experiment with different modes, and don't be afraid to iterate. The more you use it, the better you'll understand how to communicate with the AI.
 
 Now stop reading and start editing. Go make something cool. ✨
 
----
-
-## Quick Reference Card
-
-| Task | Casual Prompt | Professional Prompt |
-|------|--------------|---------------------|
-| Vintage look | "make it vintage" | "apply warm sepia color grade, reduce saturation slightly, add subtle film grain" |
-| Add glasses | "give them glasses" | "add thin silver-rimmed glasses" |
-| Professional photo | "make this look more professional" | "balance white balance, increase midtone sharpness subtly, reduce background noise" |
-| Fantasy character | "make her look like an elf" | "add subtle pointed ears, shift eye color to bright emerald green" |
-| Remove object | "remove the coffee cup" | "remove coffee cup from hand" |
-| Background change | "add a forest behind them" | "replace background with sunlit forest scene, keep subject unchanged" |
-
----
 
 **Author**: Sven Pfiffner  
-**Project**: AutoEdit Studio  
+**Project**: AutoEdit  
 **License**: See [LICENSE](LICENSE)  
 
 Happy editing! 🎨
