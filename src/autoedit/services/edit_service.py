@@ -3,13 +3,9 @@
 from __future__ import annotations
 
 import io
-from datetime import datetime
-from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from PIL import Image
-
-from typing import Optional
 
 import torch
 from diffusers import QwenImageEditPipeline
@@ -28,7 +24,15 @@ def cleanup_pipeline():
         pipeline = None
         torch.cuda.empty_cache()
 
-def edit_image(image_bytes: bytes, refined_prompt: str, is_professional: bool, progress_callback) -> Optional[bytes]:
+ENCODED_OUTPUT_FORMAT = "PNG"
+
+
+def edit_image(
+    image_bytes: bytes,
+    refined_prompt: str,
+    is_professional: bool,
+    progress_callback,
+) -> Optional[Tuple[bytes, str]]:
 
     if progress_callback:
         progress_callback(2, "active", "Loading QWEN-Image-Edit model...")
@@ -68,10 +72,10 @@ def edit_image(image_bytes: bytes, refined_prompt: str, is_professional: bool, p
     output_image = output.images[0]
     
     buffer = io.BytesIO()
-    output_image.save(buffer, format="PNG")
+    output_image.save(buffer, format=ENCODED_OUTPUT_FORMAT)
     buffer.seek(0)
 
     if progress_callback:
         progress_callback(3, "complete", "QWEN-Image-Edit applied successfully.")
 
-    return buffer.getvalue()
+    return buffer.getvalue(), ENCODED_OUTPUT_FORMAT

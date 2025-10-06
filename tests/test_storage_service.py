@@ -2,15 +2,68 @@
 
 from __future__ import annotations
 
+import io
 import json
+import sys
+import types
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from PIL import Image
+
+SRC_DIR = Path(__file__).resolve().parents[1] / "src" / "autoedit"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+
+class _InferenceMode:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+if "torch" not in sys.modules:
+    sys.modules["torch"] = types.SimpleNamespace(
+        cuda=types.SimpleNamespace(empty_cache=lambda: None),
+        manual_seed=lambda seed: seed,
+        bfloat16="bfloat16",
+        inference_mode=lambda: _InferenceMode(),
+    )
+
+
+class _FakePipeline:
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        return cls()
+
+    def set_progress_bar_config(self, **kwargs):
+        return None
+
+    def to(self, device):
+        return self
+
+    def __call__(self, **kwargs):
+        return types.SimpleNamespace(images=[Image.new("RGB", (2, 2), color=(255, 0, 0))])
+
+
+if "diffusers" not in sys.modules:
+    sys.modules["diffusers"] = types.SimpleNamespace(QwenImageEditPipeline=_FakePipeline)
 
 from autoedit.services.image_processor import ProcessResult, WorkflowStepResult
 from autoedit.services.storage_service import StorageService
+
+
+def _create_image_bytes(image_format: str = "PNG") -> bytes:
+    """Create an in-memory image and return its encoded bytes."""
+
+    buffer = io.BytesIO()
+    image = Image.new("RGB", (2, 2), color=(255, 0, 0))
+    image.save(buffer, format=image_format)
+    return buffer.getvalue()
 
 
 def test_storage_service_initialization():
@@ -36,7 +89,8 @@ def test_save_result_with_image():
             user_prompt="Test prompt",
             caption="Test caption",
             refined_prompt="Test refined prompt",
-            final_image=b"fake image data",
+            final_image=_create_image_bytes("PNG"),
+            final_image_format="PNG",
             steps=[
                 WorkflowStepResult(
                     name="Test Step",
@@ -60,7 +114,13 @@ def test_save_result_with_image():
         # Check that the image file was created
         image_path = storage.images_dir / saved_entry["image_filename"]
         assert image_path.exists()
-        assert image_path.read_bytes() == b"fake image data"
+        assert image_path.read_bytes() == result.final_image
+
+        with Image.open(image_path) as saved_image:
+            assert saved_image.format == "PNG"
+
+        assert saved_entry["image_filename"].endswith(".png")
+        assert saved_entry["image_format"] == "PNG"
 
         # Check that results.json was created
         assert storage.results_file.exists()
@@ -78,6 +138,7 @@ def test_save_result_without_image():
             caption="Test caption",
             refined_prompt="Test refined prompt",
             final_image=None,
+            final_image_format=None,
             steps=[],
             created_at=datetime.now(timezone.utc),
         )
@@ -100,11 +161,13 @@ def test_multiple_results():
 
         # Save multiple results
         for i in range(3):
+            image_format = "JPEG" if i % 2 else "PNG"
             result = ProcessResult(
                 user_prompt=f"Test prompt {i}",
                 caption=f"Test caption {i}",
                 refined_prompt=f"Test refined prompt {i}",
-                final_image=f"fake image data {i}".encode(),
+                final_image=_create_image_bytes(image_format),
+                final_image_format=image_format,
                 steps=[],
                 created_at=datetime.now(timezone.utc),
             )
@@ -119,6 +182,17 @@ def test_multiple_results():
         assert results[1]["user_prompt"] == "Test prompt 1"
         assert results[2]["user_prompt"] == "Test prompt 0"
 
+        # Verify stored filenames and actual image formats line up
+        for entry in results:
+            image_filename = entry["image_filename"]
+            if not image_filename:
+                continue
+            image_path = storage.images_dir / image_filename
+            expected_extension = StorageService._extension_from_format(entry["image_format"])
+            assert image_path.suffix.lstrip(".") == expected_extension
+            with Image.open(image_path) as saved_image:
+                assert saved_image.format == entry["image_format"]
+
 
 def test_get_result_by_id():
     """Test retrieving a specific result by ID."""
@@ -131,7 +205,8 @@ def test_get_result_by_id():
             user_prompt="Test prompt",
             caption="Test caption",
             refined_prompt="Test refined prompt",
-            final_image=b"fake image data",
+            final_image=_create_image_bytes("PNG"),
+            final_image_format="PNG",
             steps=[],
             created_at=datetime.now(timezone.utc),
         )
@@ -172,7 +247,8 @@ def test_results_json_format():
             user_prompt="Test prompt",
             caption="Test caption with unicode: 你好",
             refined_prompt="Test refined prompt",
-            final_image=b"fake image data",
+            final_image=_create_image_bytes("PNG"),
+            final_image_format="PNG",
             steps=[
                 WorkflowStepResult(
                     name="Step 1",
@@ -204,6 +280,7 @@ def test_results_json_format():
         assert "caption" in entry
         assert "refined_prompt" in entry
         assert "image_filename" in entry
+        assert "image_format" in entry
         assert "steps" in entry
         assert isinstance(entry["steps"], list)
         assert len(entry["steps"]) == 2

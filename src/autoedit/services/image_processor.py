@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 import importlib
 
@@ -37,6 +37,7 @@ class ProcessResult:
     caption: str
     refined_prompt: str
     final_image: Optional[bytes]
+    final_image_format: Optional[str]
     steps: List[WorkflowStepResult]
     created_at: datetime
 
@@ -52,7 +53,13 @@ class JoyCaptionModel:
 class QwenImageEditor:
     """Stands in for the QWEN-Image-Edit model."""
 
-    def apply_edit(self, image_bytes: bytes, refined_prompt: str, is_professional: bool, progress_callback: Optional[ProgressCallback] = None) -> Optional[bytes]:
+    def apply_edit(
+        self,
+        image_bytes: bytes,
+        refined_prompt: str,
+        is_professional: bool,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> Optional[Tuple[bytes, str]]:
         return edit_image(image_bytes, refined_prompt, is_professional, progress_callback)
 
 
@@ -118,6 +125,7 @@ class ImageProcessor:
                 caption="",
                 refined_prompt="",
                 final_image=None,
+                final_image_format=None,
                 steps=[],
                 created_at=datetime.now(timezone.utc),
             )
@@ -160,12 +168,17 @@ class ImageProcessor:
             )
 
         qwen_callback = _qwen_progress if progress_callback else None
-        final_image = self._image_editor.apply_edit(
+        final_image_result = self._image_editor.apply_edit(
             image_bytes,
             refined_prompt,
             is_professional,
             qwen_callback,
         )
+
+        final_image_bytes: Optional[bytes] = None
+        final_image_format: Optional[str] = None
+        if final_image_result:
+            final_image_bytes, final_image_format = final_image_result
 
         steps = [
             WorkflowStepResult(
@@ -211,7 +224,8 @@ class ImageProcessor:
             user_prompt=prompt,
             caption=caption_text,
             refined_prompt=refined_prompt,
-            final_image=final_image,
+            final_image=final_image_bytes,
+            final_image_format=final_image_format,
             steps=steps,
             created_at=datetime.now(timezone.utc),
         )
