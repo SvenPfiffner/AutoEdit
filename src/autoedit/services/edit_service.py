@@ -13,7 +13,7 @@ from diffusers import QwenImageEditPipeline
 from autoedit.services.prompts import QWEN_POSITIVE_PROMPT, QWEN_NEGATIVE_PROMPT
 
 
-MODEL_PATH = "dimitribarbot/Qwen-Image-Edit-int8wo"
+MODEL_PATH = "ovedrive/qwen-image-edit-4bit"
 
 pipeline: Optional[QwenImageEditPipeline] = None
 
