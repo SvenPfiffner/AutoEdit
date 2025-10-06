@@ -71,13 +71,9 @@ def edit_image(
 
     image = Image.open(io.BytesIO(image_bytes))
 
-    prompt = (
-        refined_prompt
-        + ". maintain the character face, eyes, skin details, lighting, pose, position and overall composition."
-    )
     inputs = {
         "image": image,
-        "prompt": prompt + ", " + QWEN_POSITIVE_PROMPT,
+        "prompt": refined_prompt + ", " + QWEN_POSITIVE_PROMPT,
         "generator": torch.manual_seed(0),
         "true_cfg_scale": 4.0,
         "negative_prompt": QWEN_NEGATIVE_PROMPT,
